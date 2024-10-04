@@ -1,0 +1,2 @@
+REDDIT_SOCCER_SUBREDDIT = "soccer"
+
