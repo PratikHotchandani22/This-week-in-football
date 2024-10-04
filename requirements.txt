@@ -1,0 +1,3 @@
+asyncpraw
+asyncio
+pandas
