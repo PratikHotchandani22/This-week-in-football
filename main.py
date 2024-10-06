@@ -1,5 +1,5 @@
-from configurations import REDDIT_SUBREDDITS, tgt_lang
-from helper_functions import get_previous_week_range, load_tokenizer_model, translate_comments, prepare_data_for_translation, clean_data_after_preparation
+from configurations import REDDIT_SUBREDDITS, tgt_lang, PROMPT_COMMENT_CLEANING, REDDIT_COMMENT_CLEANING_LABELS_STR, MODEL_COMMENT_CLEANING, MODEL_COMMENT_CLEANING_2
+from helper_functions import get_previous_week_range, load_tokenizer_model, translate_comments, prepare_data_for_translation, clean_data_after_preparation, classify_comments_for_cleaning
 from scrapping_reddit import initialize_reddit_client, scrape_subreddits, save_scrapped_reddit_data_csvJson
 import asyncio
 import pandas as pd
@@ -17,6 +17,7 @@ async def main():
     await reddit.close()
     """
 
+    """
     df = pd.read_csv("/Users/pratikhotchandani/Downloads/Github/This-week-in-football/reddit_submissions.csv")
     df = df[df['subreddit'] == 'Bundesliga'].sample(10)
     df = prepare_data_for_translation(df, 'comments')
@@ -39,12 +40,17 @@ async def main():
 
     # Replace the values in submission_title column in df1 with the translated title from df2
     translated_data['submission_title'] = merged_df['submission_title_translated_text'].combine_first(translated_data['submission_title'])
-
-
     translated_data.to_csv("translations.csv")
 
     # Display the resulting DataFrame
     print(translated_data)
+    """
+    df = pd.read_csv("/Users/pratikhotchandani/Downloads/Github/This-week-in-football/translations.csv")
+    print("data read: ", df)
+    llama_response = await classify_comments_for_cleaning(PROMPT_COMMENT_CLEANING, "phi3.5", df)
+    print("Classification done....")
+    #print(llama_response)
+    llama_response.to_csv("llama_response.csv")
 
     """
     comments = scrapped_data[['comments']]

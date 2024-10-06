@@ -2,6 +2,11 @@ from datetime import datetime, timedelta
 from langdetect import detect
 from transformers import M2M100ForConditionalGeneration, M2M100Tokenizer
 import ast
+import asyncio
+import ollama
+from configurations import BATCH_SIZE
+import pandas as pd
+
 
 async def load_tokenizer_model():
     # Load the tokenizer and model
@@ -147,4 +152,42 @@ def clean_data_after_preparation(df):
 
     return df_filtered
 
+async def classify_comments_for_cleaning(prompt, model, df):
+    try:
+        # Ensure prompt is a non-empty string
+        if not isinstance(prompt["content"], str) or not prompt["content"].strip():
+            raise ValueError("Prompt must be a non-empty string.")
+
+        base_string = prompt["content"]
+        responses = []
+
+        # Iterate over DataFrame rows in batches
+        for i in range(0, len(df), BATCH_SIZE):
+            print(f"Processing comments from row: {i} ...")
+            
+            for row in df[i:i+BATCH_SIZE].itertuples(index=True):
+                prompt = base_string + f"comment: '''{row.comments_translated_text}'''"
+                print("Final prompt is: ", prompt)
+                print("Generating llama response .... ")
+
+                # Send the custom prompt to the LLaMA 3.1 model
+                response = ollama.generate(
+                    model=model,
+                    prompt=prompt
+                )
+
+                # Extract the 'response' from the LLaMA output and store it
+                responses.append(response.get('response', ''))
+
+        # Add the LLaMA responses as a new column in the original DataFrame
+        df['llama_response'] = pd.Series(responses)
+
+        return df
+
+    except ValueError as ve:
+        return f"Input Error: {str(ve)}"
+    except KeyError as ke:
+        return f"Response Error: {str(ke)}"
+    except Exception as e:
+        return f"Unexpected Error: {str(e)}"
 
