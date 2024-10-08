@@ -1,7 +1,6 @@
 import asyncpraw
 import pandas as pd
 from datetime import datetime, timezone
-
 from credentials import REDDIT_USER_AGENT, REDDIT_CLIENT_SECRET, REDDIT_CLIENT_ID
 
 async def initialize_reddit_client():
@@ -85,25 +84,6 @@ async def scrape_subreddits(subreddit_list, reddit, start_date, end_date):
 
     # Convert collected data into a DataFrame
     return pd.DataFrame(data)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 def save_scrapped_reddit_data_csvJson(dataframe):
     # Save the DataFrame to a JSON file

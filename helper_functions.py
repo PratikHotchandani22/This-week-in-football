@@ -6,7 +6,7 @@ import asyncio
 import ollama
 from configurations import BATCH_SIZE
 import pandas as pd
-
+import re
 
 async def load_tokenizer_model():
     # Load the tokenizer and model
@@ -70,43 +70,6 @@ def translate_text(input_text, tgt_lang, tokenizer, model):
     else:
         return src_lang, "translation not required"
 
-# Function to apply the translation to each comment in the list
-def translate_comments_old(df, column_name, tgt_lang, tokenizer, model):
-    # List to hold the results
-    translated_results = []
-
-    # Iterate over each row in the DataFrame
-    for idx, row in df.iterrows():
-        comments = row[column_name]  # Get the list of comments in the current row
-
-        # Convert the string to a list
-        sentences_list = ast.literal_eval(comments)
-
-        # Check if the value is a list
-        if isinstance(sentences_list, list):
-            print("first comment row is: ", sentences_list)
-            translated_row = []
-            for comment in sentences_list:
-                try:
-                    # Translate each comment
-                    detected_lang, translated_comment = translate_text(comment, tgt_lang, tokenizer, model)
-                    translated_row.append({
-                        'original_text': comment,
-                        'detected_language': detected_lang,
-                        'translated_text': translated_comment
-                    })
-                except Exception as e:
-                    print(f"Error in row {idx}, comment: {comment}, error: {e}")
-                    continue
-
-            # Append translated result for the current row
-            translated_results.append(translated_row)
-
-        else:
-            print("not an instance of list...")
-    
-    return translated_results
-
 # Function to apply the translation to each comment in the DataFrame
 def translate_comments(df, column_name, tgt_lang, tokenizer, model):
     # Initialize new columns for detected language and dynamic translated text
@@ -119,6 +82,9 @@ def translate_comments(df, column_name, tgt_lang, tokenizer, model):
     for idx in df.index:
         comment = df.at[idx, column_name]  # Access the comment in the given row
         try:
+
+            #TODO: dont translate comments that are not text (could be a link, emojis)
+            #TODO: dont translate submissions that are not text
             # Translate the comment
             detected_lang, translated_comment = translate_text(comment, tgt_lang, tokenizer, model)
 
@@ -138,6 +104,7 @@ def translate_comments(df, column_name, tgt_lang, tokenizer, model):
     return df
 
 def prepare_data_for_translation(df, column_name):
+    df['comments'] = df['comments'].apply(lambda x: str(x) if not isinstance(x, str) else x)
     df[column_name] = df[column_name].apply(ast.literal_eval)
     df_exploded = df.explode(column_name)
     df_exploded = df_exploded.reset_index(drop=True)
@@ -145,10 +112,25 @@ def prepare_data_for_translation(df, column_name):
     return df_exploded
 
 def clean_data_after_preparation(df):
+    # drop rows where there are no comments.
     df_cleaned = df.dropna(subset=['comments'])
-    
+
     # Remove rows where the character length of 'comments' is less than or equal to 4
     df_filtered = df_cleaned[df_cleaned['comments'].str.len() >= 3]
+
+    # Remove newline characters from the 'comments' column
+    df_filtered['comments'] = df_filtered['comments'].replace('\n', ' ', regex=True)
+
+    # Remove rows where comments contain '[deleted]' or '[removed]'
+    df_filtered = df_filtered[~df_filtered['comments'].str.contains(r'\[deleted\]|\[removed\]', regex=True)]
+
+    # Remove rows where the comments are only emojis
+    emoji_pattern = r'^[\U0001F600-\U0001F64F\U0001F300-\U0001F5FF\U0001F680-\U0001F6FF\U0001F1E0-\U0001F1FF\s]+$'
+    df_filtered = df_filtered[~df_filtered['comments'].str.match(emoji_pattern)]
+
+    # Remove rows where the comments are only URLs
+    url_pattern = r'^https?://\S+$'
+    df_filtered = df_filtered[~df_filtered['comments'].str.match(url_pattern)]
 
     return df_filtered
 
@@ -157,6 +139,10 @@ async def classify_comments_for_cleaning(prompt, model, df):
         # Ensure prompt is a non-empty string
         if not isinstance(prompt["content"], str) or not prompt["content"].strip():
             raise ValueError("Prompt must be a non-empty string.")
+        else: 
+            print("prompt all good")
+        
+        print("Prompt passed is: ", prompt)
 
         base_string = prompt["content"]
         responses = []
@@ -180,7 +166,7 @@ async def classify_comments_for_cleaning(prompt, model, df):
                 responses.append(response.get('response', ''))
 
         # Add the LLaMA responses as a new column in the original DataFrame
-        df['llama_response'] = pd.Series(responses)
+        df['phi_response'] = pd.Series(responses)
 
         return df
 
@@ -191,3 +177,79 @@ async def classify_comments_for_cleaning(prompt, model, df):
     except Exception as e:
         return f"Unexpected Error: {str(e)}"
 
+async def classify_comments_for_cleaning_new(prompt, model, df):
+    try:
+        # Ensure prompt is a non-empty string
+        if not isinstance(prompt["content"], str) or not prompt["content"].strip():
+            raise ValueError("Prompt must be a non-empty string.")
+        else:
+            print("Prompt all good")
+        
+        print("Prompt passed is: ", prompt)
+
+        base_string = prompt["content"]
+        responses = []
+
+        # Iterate over DataFrame rows in batches
+        for i in range(0, len(df), BATCH_SIZE):
+            print(f"Processing comments from row: {i} ...")
+            
+            for row in df[i:i+BATCH_SIZE].itertuples(index=True):
+                # Combine the submission title and comment text in the prompt
+                full_prompt = base_string + f"submission title: '''{row.submission_title}'''\ncomment: '''{row.comments_translated_text}'''"
+                print("Final prompt is: ", full_prompt)
+                print("Generating LLaMA response .... ")
+
+                # Send the custom prompt to the LLaMA 3.1 model
+                response = ollama.generate(
+                    model=model,
+                    prompt=full_prompt
+                )
+
+                # Extract the 'response' from the LLaMA output and store it
+                responses.append(response.get('response', ''))
+
+        # Add the LLaMA responses as a new column in the original DataFrame
+        df['llama8b_submission_response'] = pd.Series(responses)
+
+        return df
+
+    except ValueError as ve:
+        return f"Input Error: {str(ve)}"
+    except KeyError as ke:
+        return f"Response Error: {str(ke)}"
+    except Exception as e:
+        return f"Unexpected Error: {str(e)}"
+
+def validate_llama_response(df, labels_list):
+    """
+    Check if the values in the 'llama_response' column are in labels_list.
+    Remove blank spaces, quotes, and \n from the responses.
+    Replace invalid labels with 'Error'.
+
+    Parameters:
+    df (pd.DataFrame): The DataFrame containing the llama responses.
+    labels_list (list): A list of valid labels.
+
+    Returns:
+    pd.DataFrame: The updated DataFrame with invalid labels replaced by 'Error'.
+    """
+    # Ensure the labels_list is a set for faster lookup
+    valid_labels = set(labels_list)
+
+    # Clean and validate the 'llama_response' column
+    df['llama8b_submission_response'] = df['llama8b_submission_response'].apply(
+        lambda x: x.replace('"', '').replace("'", "").replace('\n', '').strip() 
+        if isinstance(x, str) else x
+    )
+
+    # Replace invalid labels with 'Error'
+    df['llama8b_submission_response'] = df['llama8b_submission_response'].apply(
+        lambda x: x if x in valid_labels else 'Error'
+    )
+
+    return df
+
+def remove_bot_NA_error_responses(df):
+    df = df[df['llama8b_submission_response'] == 'Human-Conversation']
+    return df
