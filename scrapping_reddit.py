@@ -49,7 +49,7 @@ async def scrape_subreddits(subreddit_list, reddit, start_date, end_date):
         subreddit = await reddit.subreddit(subreddit_name)
 
         # Fetch submissions in the subreddit and filter by date range
-        async for submission in subreddit.hot(limit=None):  # Adjust limit as needed
+        async for submission in subreddit.hot(limit=15):  # Adjust limit as needed
             submission_date = datetime.fromtimestamp(submission.created_utc, tz=timezone.utc).date()
 
             # Check if submission falls within the date range
@@ -58,7 +58,7 @@ async def scrape_subreddits(subreddit_list, reddit, start_date, end_date):
 
                 # Retrieve top 10 comments
                 await submission.comments.replace_more(limit=0)  # Expand all comments
-                top_comments = submission.comments[:100]  # Get top 100 comments
+                top_comments = submission.comments[:20]  # Get top 100 comments
                 comments_text = [comment.body for comment in top_comments] if top_comments else ["No comments"]
 
                 # Identify submission type

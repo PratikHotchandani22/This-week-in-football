@@ -29,7 +29,7 @@ async def main():
     tokenizer, model = await load_tokenizer_model()
     
     # translat comments
-    translated_data = translate_comments(prepared_df, 'comments', tgt_lang, tokenizer, model)
+    translated_data = translate_comments(prepared_df, 'val_comments', tgt_lang, tokenizer, model)
 
     # Create a new DataFrame where each submission_id is unique
     unique_submission_df = translated_data.drop_duplicates(subset='submission_id', keep='first')
@@ -49,17 +49,17 @@ async def main():
     print("translation comepleteddd....")
 
     print("starting llama text comment classification...")
-    llama_response = await classify_comments_for_cleaning_new(PROMPT_COMMENT_CLEANING_SUBMISSION, "llama3.1:8b", translated_data)
+    llama_response = await classify_comments_for_cleaning_new(PROMPT_COMMENT_CLEANING_SUBMISSION, "phi3.5:latest", translated_data)
     print("Classification done....")
 
-    llama_response.to_csv("llama8b_submission.csv")
+    llama_response.to_csv("llama8b_submission_new.csv")
 
     print("cleaning llama responses....")
     validated_response = validate_llama_response(llama_response, REDDIT_COMMENT_CLEANING_LABELS)
-    filtered_response = remove_bot_NA_error_responses(validated_response)
+    #filtered_response = remove_bot_NA_error_responses(validated_response)
 
     print("saving final responseeee")
-    filtered_response.to_csv("final_response.csv")
+    validated_response.to_csv("final_response_new.csv")
 
     print("task done...")
     """

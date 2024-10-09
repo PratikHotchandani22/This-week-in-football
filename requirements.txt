@@ -4,3 +4,5 @@ pandas
 transformers
 langdetect
 torch
+spacy
+emoji
