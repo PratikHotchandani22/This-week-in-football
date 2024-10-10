@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 from langdetect import detect
 from transformers import M2M100ForConditionalGeneration, M2M100Tokenizer
+from langchain_ollama import ChatOllama
 import ast
 import asyncio
 import ollama
@@ -9,6 +10,7 @@ import pandas as pd
 import re
 import spacy
 import emoji
+import time
 
 async def load_tokenizer_model():
     # Load the tokenizer and model
@@ -200,49 +202,6 @@ def clean_data_after_preparation(df):
     
     return df_filtered
 
-async def classify_comments_for_cleaning(prompt, model, df):
-    try:
-        # Ensure prompt is a non-empty string
-        if not isinstance(prompt["content"], str) or not prompt["content"].strip():
-            raise ValueError("Prompt must be a non-empty string.")
-        else: 
-            print("prompt all good")
-        
-        print("Prompt passed is: ", prompt)
-
-        base_string = prompt["content"]
-        responses = []
-
-        # Iterate over DataFrame rows in batches
-        for i in range(0, len(df), BATCH_SIZE):
-            print(f"Processing comments from row: {i} ...")
-            
-            for row in df[i:i+BATCH_SIZE].itertuples(index=True):
-                prompt = base_string + f"comment: '''{row.comments_translated_text}'''"
-                print("Final prompt is: ", prompt)
-                print("Generating llama response .... ")
-
-                # Send the custom prompt to the LLaMA 3.1 model
-                response = ollama.generate(
-                    model=model,
-                    prompt=prompt
-                )
-
-                # Extract the 'response' from the LLaMA output and store it
-                responses.append(response.get('response', ''))
-
-        # Add the LLaMA responses as a new column in the original DataFrame
-        df['phi_response'] = pd.Series(responses)
-
-        return df
-
-    except ValueError as ve:
-        return f"Input Error: {str(ve)}"
-    except KeyError as ke:
-        return f"Response Error: {str(ke)}"
-    except Exception as e:
-        return f"Unexpected Error: {str(e)}"
-
 async def classify_comments_for_cleaning_new(prompt, model, df):
     try:
         # Ensure prompt is a non-empty string
@@ -285,6 +244,150 @@ async def classify_comments_for_cleaning_new(prompt, model, df):
         return f"Response Error: {str(ke)}"
     except Exception as e:
         return f"Unexpected Error: {str(e)}"
+
+async def classify_comments_for_cleaning_with_models(prompt, models, df):
+    try:
+         # Ensure prompt is a non-empty string
+        if not isinstance(prompt["content"], str) or not prompt["content"].strip():
+            raise ValueError("Prompt must be a non-empty string.")
+        else:
+            print("Prompt all good")
+
+        base_string = prompt["content"]
+
+        # Iterate over the list of models
+        for model in models:
+            responses = []
+
+            # Iterate over DataFrame rows in batches
+            for i in range(0, len(df), BATCH_SIZE):
+                print(f"Processing comments from row: {i} with model: {model} ...")
+
+                for row in df[i:i+BATCH_SIZE].itertuples(index=True):
+                    full_prompt = base_string + f"submission title: '''{row.submission_title}'''\ncomment: '''{row.val_comments_translated_text}'''"
+                    # Send the custom prompt to the model
+                    response = ollama.generate(
+                        model=model,
+                        prompt=full_prompt
+                    )
+
+                    # Extract the 'response' from the model output and store it
+                    responses.append(response.get('response', ''))
+
+            # Add the model responses as a new column in the original DataFrame
+            # Column name is based on the model
+            df[f"{model}_response"] = pd.Series(responses)
+
+        return df
+
+    except ValueError as ve:
+        return f"Input Error: {str(ve)}"
+    except KeyError as ke:
+        return f"Response Error: {str(ke)}"
+    except Exception as e:
+        return f"Unexpected Error: {str(e)}"
+
+async def classify_comments_for_cleaning_with_models_time(prompt, models, df):
+    try:
+        # Ensure prompt is a non-empty string
+        if not isinstance(prompt["content"], str) or not prompt["content"].strip():
+            raise ValueError("Prompt must be a non-empty string.")
+        else:
+            print("Prompt all good")
+
+        base_string = prompt["content"]
+
+        # Dictionary to store total execution times for each model
+        model_execution_times = {}
+
+        # Iterate over the list of models
+        for model in models:
+            responses = []
+
+            # Start the timer for the current model
+            start_time = time.time()
+
+            # Iterate over DataFrame rows in batches
+            for i in range(0, len(df), BATCH_SIZE):
+                print(f"Processing comments from row: {i} with model: {model} ...")
+
+                for row in df[i:i + BATCH_SIZE].itertuples(index=True):
+                    full_prompt = base_string + f"submission title: '''{row.submission_title}'''\ncomment: '''{row.val_comments_translated_text}'''"
+                    # Send the custom prompt to the model
+                    response = ollama.generate(
+                        model=model,
+                        prompt=full_prompt
+                    )
+
+                    # Extract the 'response' from the model output and store it
+                    responses.append(response.get('response', ''))
+
+            # Add the model responses as a new column in the original DataFrame
+            df[f"{model}_response"] = pd.Series(responses)
+
+            # Calculate total execution time for this model
+            end_time = time.time()
+            total_time = end_time - start_time
+
+            # Store execution time for the model
+            model_execution_times[model] = total_time
+
+        # Convert the model execution times into a DataFrame
+        time_df = pd.DataFrame(list(model_execution_times.items()), columns=['Model', 'Execution Time (seconds)'])
+
+        return df, time_df
+
+    except ValueError as ve:
+        return f"Input Error: {str(ve)}"
+    except KeyError as ke:
+        return f"Response Error: {str(ke)}"
+    except Exception as e:
+        return f"Unexpected Error: {str(e)}"
+
+# Define the async function to classify comments
+async def classify_comments_for_cleaning_with_models_time_langChain(prompt, model_name, df, batch_size=100):
+    
+    responses = []  # Store model responses
+
+    try:
+        print("Prompt template is valid.")
+
+        # Start the timer for the model
+        start_time = time.time()
+
+        # Define the LLM with customizable parameters
+        llm = ChatOllama(
+            model=model_name,
+            temperature=0.2  # Adjust temperature as needed
+        )
+
+        # Iterate over DataFrame rows in batches
+        for i in range(0, len(df), batch_size):
+            print(f"Processing comments from row: {i} with model: {llm.model} ...")
+
+            # Process each batch
+            for row in df[i:i + batch_size].itertuples(index=True):
+                # Prepare the messages for the LLM
+                messages = [
+                    ("system", prompt),
+                    ("human", f"Submission title: {row.submission_title}\n```{row.val_comments_translated_text}```")
+                ]
+
+                # Invoke the model
+                response = llm.invoke(messages)
+
+                # Append the response
+                responses.append(response.content)
+
+        # Add the responses as a new column in the original DataFrame
+        df[f"{llm.model}_response"] = pd.Series(responses)
+
+
+    except Exception as e:
+        print(f"Error occurred: {e}")
+        return df, pd.DataFrame()  # Return empty DataFrame for time_df on error
+
+    return df
 
 def validate_llama_response(df, labels_list):
     """
