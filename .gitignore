@@ -1,2 +1,3 @@
 # Ignore reddit credentials 
 credentials.py
+*.pyc

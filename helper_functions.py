@@ -92,9 +92,15 @@ def translate_comments(df, column_name, tgt_lang, tokenizer, model):
     return df
 
 def prepare_data_for_translation(df, column_name):
-    df['comments'] = df['comments'].apply(lambda x: str(x) if not isinstance(x, str) else x)
-    df[column_name] = df[column_name].apply(ast.literal_eval)
-    df_exploded = df.explode(column_name)
+    # Ensure all columns with lists (comments, comment_id, comments_upvote) are evaluated as lists
+    df['comments'] = df['comments'].apply(lambda x: ast.literal_eval(x) if not isinstance(x, list) else x)
+    df['comment_id'] = df['comment_id'].apply(lambda x: ast.literal_eval(x) if not isinstance(x, list) else x)
+    df['comments_upvote'] = df['comments_upvote'].apply(lambda x: ast.literal_eval(x) if not isinstance(x, list) else x)
+
+    # Explode the comments, comment_id, and comments_upvote columns simultaneously
+    df_exploded = df.explode(['comments', 'comment_id', 'comments_upvote'])
+
+    # Reset index to clean up the exploded DataFrame
     df_exploded = df_exploded.reset_index(drop=True)
 
     return df_exploded
