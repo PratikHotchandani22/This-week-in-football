@@ -57,7 +57,6 @@ async def main():
 
     models_response.to_csv("models_response.csv")
 
-
     print("Cleaning model response for human/bot classification..")
     validated_model_response = validate_qwen_response(models_response, REDDIT_COMMENT_CLEANING_LABELS)
     

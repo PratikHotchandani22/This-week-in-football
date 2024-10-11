@@ -20,7 +20,9 @@ def prepare_data_reddit_submission(models_response: pd.DataFrame):
             "sentiment": row.get("sentiment", None),  # Assuming sentiment analysis is performed
             "is_conversation": row.get("is_conversation", None),  # Assuming category is assigned
             "subreddit": row.get("subreddit", None),  # Subreddit field
-            "links_in_comment": row.get("links_in_comment", None) 
+            "links_in_comment": row.get("links_in_comment", None),
+            "comment_id": row.get("comment_id", None),
+            "comments_upvote": row.get("comments_upvote", None) 
         }
 
         # Append the prepared data for this row to the list

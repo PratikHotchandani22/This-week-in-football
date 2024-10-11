@@ -59,7 +59,11 @@ async def scrape_subreddits(subreddit_list, reddit, start_date, end_date):
                 # Retrieve top 10 comments
                 await submission.comments.replace_more(limit=0)  # Expand all comments
                 top_comments = submission.comments[:2]  # Get top 100 comments
+                print("all the comments are: ")
+                print(top_comments)
                 comments_text = [comment.body for comment in top_comments] if top_comments else ["No comments"]
+                comments_id = [comment.id for comment in top_comments] if top_comments else ["No comments"]
+                comments_upvote = [comment.score for comment in top_comments] if top_comments else ["No comments"]
 
                 # Identify submission type
                 submission_type = await get_submission_type(submission)
@@ -79,7 +83,9 @@ async def scrape_subreddits(subreddit_list, reddit, start_date, end_date):
                     'submission_url': submission.permalink,
                     'submission_title': submission.title,
                     'no_of_upvotes': submission.score,
-                    'comments': comments_text
+                    'comments': comments_text,
+                    'comment_id':comments_id,
+                    'comments_upvote':comments_upvote
                 })
 
     # Convert collected data into a DataFrame
