@@ -22,7 +22,11 @@ def prepare_data_reddit_submission(models_response: pd.DataFrame):
             "subreddit": row.get("subreddit", None),  # Subreddit field
             "links_in_comment": row.get("links_in_comment", None),
             "comment_id": row.get("comment_id", None),
-            "comments_upvote": row.get("comments_upvote", None) 
+            "comments_upvote": row.get("comments_upvote", None),
+            "sub_title_sentiment": row.get("sub_title_sentiment", None),
+            "sub_title_emotions": row.get("sub_title_emotions", None),
+            "comment_sentiment": row.get("comment_sentiment", None),
+            "comment_emotions": row.get("comment_emotions", None)
         }
 
         # Append the prepared data for this row to the list

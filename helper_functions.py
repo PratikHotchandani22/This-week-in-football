@@ -3,7 +3,6 @@ from langdetect import detect
 from transformers import M2M100ForConditionalGeneration, M2M100Tokenizer
 from langchain_ollama import ChatOllama
 import ast
-import asyncio
 import ollama
 from configurations import BATCH_SIZE
 import pandas as pd
@@ -445,4 +444,97 @@ def clean_data_for_sentiment(df):
                             'qwen2.5:7b_response':'is_conversation',
                             'submission_object_link':'submission_object_url'})
     
+    return df
+
+async def sentiment_emotion_tagging_comments_langchain(prompt, model_name, df, batch_size=100):
+    responses = []  # Store model responses
+
+    try:
+        print("Prompt template is valid.")
+
+        # Start the timer for the model
+        start_time = time.time()
+
+        # Define the LLM with customizable parameters
+        llm = ChatOllama(
+            model=model_name,
+            temperature=0.2  # Adjust temperature as needed
+        )
+
+        # Iterate over DataFrame rows in batches
+        for i in range(0, len(df), batch_size):
+            print(f"Processing comments from row: {i} with model: {llm.model} ...")
+
+            # Process each batch
+            for row in df[i:i + batch_size].itertuples(index=True):
+                # Prepare the messages for the LLM
+                messages = [
+                    ("system", prompt),
+                    ("human", f"Submission title: {row.submission_title}\nComment: ```{row.comment}```")
+                ]
+
+                # Invoke the model
+                response = llm.invoke(messages)
+
+                # Append the response
+                responses.append(response.content)
+
+        # Add the responses as a new column in the original DataFrame
+        df[f"{llm.model}_sentiment_emotion_response"] = pd.Series(responses)
+
+    except Exception as e:
+        print(f"Error occurred: {e}")
+        return df  # Return DataFrame with responses on error
+
+    return df
+
+def extract_sentiment_emotion(df, response_column):
+    # Define the new column names
+    new_columns = ['sub_title_sentiment', 'sub_title_emotions', 'comment_sentiment', 'comment_emotions']
+
+    # Initialize empty lists for each column
+    submission_title_sentiment = []
+    submission_title_emotions = []
+    comment_sentiment = []
+    comment_emotions = []
+
+    # Iterate over each row in the DataFrame
+    for response in df[response_column]:
+        # Extract Submission Title Sentiment
+        submission_title_sentiment_match = re.search(r'Submission Title Sentiment: (.*)', response)
+        if submission_title_sentiment_match:
+            submission_title_sentiment.append(submission_title_sentiment_match.group(1).strip())
+        else:
+            submission_title_sentiment.append(None)
+
+        # Extract Submission Title Emotions
+        submission_title_emotions_match = re.search(r'Submission Title Emotions: (.*)', response)
+        if submission_title_emotions_match:
+            submission_title_emotions.append(submission_title_emotions_match.group(1).strip())
+        else:
+            submission_title_emotions.append(None)
+
+        # Extract Comment Sentiment
+        comment_sentiment_match = re.search(r'Comment Sentiment: (.*)', response)
+        if comment_sentiment_match:
+            comment_sentiment.append(comment_sentiment_match.group(1).strip())
+        else:
+            comment_sentiment.append(None)
+
+        # Extract Comment Emotions
+        comment_emotions_match = re.search(r'Comment Emotions: (.*)', response)
+        if comment_emotions_match:
+            comment_emotions.append(comment_emotions_match.group(1).strip())
+        else:
+            comment_emotions.append(None)
+
+    # Add the extracted values as new columns to the DataFrame
+    df[new_columns[0]] = submission_title_sentiment
+    df[new_columns[1]] = submission_title_emotions
+    df[new_columns[2]] = comment_sentiment
+    df[new_columns[3]] = comment_emotions
+
+    # Drop the specified column
+    df = df.drop(columns=["llama3.1:8b_sentiment_emotion_response"])
+
     return df

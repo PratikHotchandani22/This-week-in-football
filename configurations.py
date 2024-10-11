@@ -6,6 +6,7 @@ REDDIT_COMMENT_CLEANING_LABELS = ['Bot','Human-Conversation']
 REDDIT_COMMENT_CLEANING_LABELS_STR = ",".join(REDDIT_COMMENT_CLEANING_LABELS)
 
 MODEL_COMMENT_CLEANING = "qwen2.5:7b"
+MODEL_EMOTION_TAGGING = "llama3.1:8b"
 
 PROMPT_COMMENT_CLEANING_SUBMISSION = (
     "You are a Reddit subreddit moderator tasked with categorizing comments into one of the following labels: 'Bot' or 'Human-Conversation'. "
@@ -40,6 +41,39 @@ PROMPT_COMMENT_CLEANING_SUBMISSION = (
     "Crucial reminder: Only classify a comment as 'Bot' if it explicitly states that it is a bot or shows clear automated behavior. "
     "If it expresses any human sentiment or perspective, it should be classified as 'Human-Conversation'."
     "\n\nThe comment text and submission title to categorize are provided inside ```.\n\n"
+)
+
+PROMPT_SENTIMENT_EMOTION = (
+    "You are an AI tasked with analyzing Reddit comments and submission titles to determine the overall sentiment and emotions expressed. "
+    "For each input, you will receive both the submission title and a comment, and you are expected to provide two outputs:\n"
+    
+    "1. **Sentiment Score**: You must categorize the sentiment of both the submission title and the comment as one of the following labels: 'Positive', 'Neutral', or 'Negative'.\n"
+    
+    "2. **Emotion Tags**: Identify the emotions expressed in both the submission title and the comment. You can tag multiple emotions, and they should be chosen from the following list: 'Joy', 'Anger', 'Sadness', 'Surprise', 'Disgust', 'Fear', 'Anticipation'.\n"
+    
+    "Important note: Your output must follow this format, with **no explanations** or additional information:\n"
+    "- Submission Title Sentiment: [Positive/Negative/Neutral]\n"
+    "- Submission Title Emotions: [List of detected emotions]\n"
+    "- Comment Sentiment: [Positive/Negative/Neutral]\n"
+    "- Comment Emotions: [List of detected emotions]\n\n"
+    
+    "Examples:\n"
+    '1. Submission title: "Incredible game! One of the best I’ve ever seen." Comment: "I can’t believe it! The final goal was unbelievable." ->\n'
+    '- Submission Title Sentiment: Positive\n'
+    '- Submission Title Emotions: Joy, Surprise\n'
+    '- Comment Sentiment: Positive\n'
+    '- Comment Emotions: Joy, Surprise\n\n'
+    
+    '2. Submission title: "What a disappointment. I expected more from this team." Comment: "Yeah, it was pretty bad. Nothing went right." ->\n'
+    '- Submission Title Sentiment: Negative\n'
+    '- Submission Title Emotions: Sadness, Disgust\n'
+    '- Comment Sentiment: Negative\n'
+    '- Comment Emotions: Sadness, Disgust\n\n'
+    
+    "Crucial reminder: You must categorize the sentiment first, then tag any relevant emotions from the list provided. "
+    "If no strong emotion is detected, simply return 'None' for the emotions.\n\n"
+    
+    "The submission title and comment to analyze are provided inside ```.\n\n"
 )
 
 
