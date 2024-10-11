@@ -1,9 +1,11 @@
-from configurations import REDDIT_SUBREDDITS, tgt_lang, REDDIT_COMMENT_CLEANING_LABELS, PROMPT_COMMENT_CLEANING_SUBMISSION, REDDIT_COMMENT_CLEANING_LABELS_STR, MODEL_COMMENT_CLEANING_2
-from helper_functions import get_previous_week_range, load_tokenizer_model, translate_comments, prepare_data_for_translation, clean_data_after_preparation, classify_comments_for_cleaning, classify_comments_for_cleaning_new, remove_bot_NA_error_responses, validate_llama_response
+from configurations import REDDIT_COMMENT_CLEANING_LABELS, REDDIT_EMBEDDINGS_TABLE, REDDIT_SUMMARY_TABLE, REDDIT_SUBMISSIONS_TABLE, MODEL_COMMENT_CLEANING, REDDIT_SUBREDDITS, tgt_lang, PROMPT_COMMENT_CLEANING_SUBMISSION, PROMPT_COMMENT_CLEANING_SUBMISSION
+from helper_functions import clean_data_for_sentiment, validate_qwen_response, get_previous_week_range, classify_comments_for_cleaning_with_models_time_langChain, load_tokenizer_model, translate_comments, prepare_data_for_translation, clean_data_after_preparation
 from scrapping_reddit import initialize_reddit_client, scrape_subreddits, save_scrapped_reddit_data_csvJson
 import asyncio
 import pandas as pd
-import ast
+
+from supabase_backend import create_supabase_connection, insert_data_into_table, fetch_data_from_table
+from supabase_helper_functions import prepare_data_reddit_submission
 
 async def main():
     
@@ -49,26 +51,41 @@ async def main():
     print("translation comepleteddd....")
 
     print("starting llama text comment classification...")
-    llama_response = await classify_comments_for_cleaning_new(PROMPT_COMMENT_CLEANING_SUBMISSION, "phi3.5:latest", translated_data)
+    models_response = await classify_comments_for_cleaning_with_models_time_langChain(PROMPT_COMMENT_CLEANING_SUBMISSION, MODEL_COMMENT_CLEANING, translated_data)
     print("Classification done....")
 
-    llama_response.to_csv("llama8b_submission_new.csv")
+    models_response.to_csv("models_response.csv")
 
-    print("cleaning llama responses....")
-    validated_response = validate_llama_response(llama_response, REDDIT_COMMENT_CLEANING_LABELS)
-    #filtered_response = remove_bot_NA_error_responses(validated_response)
 
-    print("saving final responseeee")
-    validated_response.to_csv("final_response_new.csv")
+    print("Cleaning model response for human/bot classification..")
+    validated_model_response = validate_qwen_response(models_response, REDDIT_COMMENT_CLEANING_LABELS)
+    
+    # Assuming df is your DataFrame
+    print("Columns at validation: ", validated_model_response.columns.tolist())
+    cleaned_df = clean_data_for_sentiment(validated_model_response)
 
-    print("task done...")
-    """
-    comments = scrapped_data[['comments']]
-    text = comments.iloc[171].comments
+    cleaned_df.to_csv("cleaned.csv")
+    
+    print("generating sentiment of response..")
+    #TODO: generate sentiment of the response using any SOTA open-source LLM model.
 
-    # Convert the string to a list
-    sentences_list = ast.literal_eval(text)
-    """
+    print("Creating supbase connection..")
+    supabase_client = await create_supabase_connection()
+    print("Supabase connection created.. ")
+
+    print("ehader of cleaned data: ", cleaned_df.iloc[0])
+    reddit_submission_prepared_data = prepare_data_reddit_submission(cleaned_df)
+    #reddit_submission_prepared_data.to_json("reddit_submission_prepared_data.json")
+    print("saving prepared reddit data for supabase...")
+    print("prepared data is: ")
+    print(reddit_submission_prepared_data)
+
+
+    print("Adding reddit submissions data to supabase table..")
+    reddit_supabase_sub_response = insert_data_into_table(supabase_client, REDDIT_SUBMISSIONS_TABLE ,reddit_submission_prepared_data)
+    print("Supabase submissions response ok")
+
+
 
 # Ensure the event loop is run properly
 if __name__ == "__main__":

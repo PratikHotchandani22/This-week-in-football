@@ -1,4 +1,4 @@
-REDDIT_SUBREDDITS = ["soccer","championsleague","football","seriea","PremierLeague","LaLiga","Bundesliga","Ligue1"]
+REDDIT_SUBREDDITS = ["soccer", "championsleague", "football", "seriea", "PremierLeague", "LaLiga", "Bundesliga", "Ligue1"]
 
 tgt_lang = "en"
 BATCH_SIZE = 100
@@ -41,3 +41,10 @@ PROMPT_COMMENT_CLEANING_SUBMISSION = (
     "If it expresses any human sentiment or perspective, it should be classified as 'Human-Conversation'."
     "\n\nThe comment text and submission title to categorize are provided inside ```.\n\n"
 )
+
+
+# Supabase table details
+REDDIT_EMBEDDINGS_TABLE = "reddit_embeddings"
+REDDIT_SUBMISSIONS_TABLE = "reddit_submissions"
+REDDIT_SUMMARY_TABLE = "reddit_summary"
+

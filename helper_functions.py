@@ -389,7 +389,7 @@ async def classify_comments_for_cleaning_with_models_time_langChain(prompt, mode
 
     return df
 
-def validate_llama_response(df, labels_list):
+def validate_qwen_response(df, labels_list):
     """
     Check if the values in the 'llama_response' column are in labels_list.
     Remove blank spaces, quotes, and \n from the responses.
@@ -406,18 +406,37 @@ def validate_llama_response(df, labels_list):
     valid_labels = set(labels_list)
 
     # Clean and validate the 'llama_response' column
-    df['llama8b_submission_response'] = df['llama8b_submission_response'].apply(
+    df['qwen2.5:7b_response'] = df['qwen2.5:7b_response'].apply(
         lambda x: x.replace('"', '').replace("'", "").replace('\n', '').strip() 
         if isinstance(x, str) else x
     )
 
     # Replace invalid labels with 'Error'
-    df['llama8b_submission_response'] = df['llama8b_submission_response'].apply(
+    df['qwen2.5:7b_response'] = df['qwen2.5:7b_response'].apply(
         lambda x: x if x in valid_labels else 'Error'
     )
 
+    df = df[df['qwen2.5:7b_response'] != ""]
+
+    # drop rows where there are no comments.
+    df = df.dropna(subset=['qwen2.5:7b_response'])
+
+    # Remove newline characters from the 'comments' column
+    df['qwen2.5:7b_response'] = df['qwen2.5:7b_response'].replace('\n', ' ', regex=True)
+
     return df
 
-def remove_bot_NA_error_responses(df):
-    df = df[df['llama8b_submission_response'] == 'Human-Conversation']
+def clean_data_for_sentiment(df):
+
+    drop_columns = ['comments', 'original_comments','val_comments','val_comments_langugage']
+    
+    # Assuming df is your DataFrame
+    #df = df.drop(df.columns[0], axis=1)
+    df = df.drop(columns=drop_columns)
+    df['submission_date'] = pd.to_datetime(df['submission_date'])
+
+    df = df.rename(columns={'val_comments_translated_text': 'comment', 
+                            'qwen2.5:7b_response':'is_conversation',
+                            'submission_object_link':'submission_object_url'})
+    
     return df
