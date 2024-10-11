@@ -1,3 +1,6 @@
 # Ignore reddit credentials 
 credentials.py
 *.pyc
+*.csv
+*.json
+Testing code/

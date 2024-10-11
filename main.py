@@ -1,5 +1,5 @@
-from configurations import REDDIT_COMMENT_CLEANING_LABELS, REDDIT_EMBEDDINGS_TABLE, REDDIT_SUMMARY_TABLE, REDDIT_SUBMISSIONS_TABLE, MODEL_COMMENT_CLEANING, REDDIT_SUBREDDITS, tgt_lang, PROMPT_COMMENT_CLEANING_SUBMISSION, PROMPT_COMMENT_CLEANING_SUBMISSION
-from helper_functions import clean_data_for_sentiment, validate_qwen_response, get_previous_week_range, classify_comments_for_cleaning_with_models_time_langChain, load_tokenizer_model, translate_comments, prepare_data_for_translation, clean_data_after_preparation
+from configurations import MODEL_EMOTION_TAGGING, PROMPT_SENTIMENT_EMOTION, REDDIT_COMMENT_CLEANING_LABELS, REDDIT_EMBEDDINGS_TABLE, REDDIT_SUMMARY_TABLE, REDDIT_SUBMISSIONS_TABLE, MODEL_COMMENT_CLEANING, REDDIT_SUBREDDITS, tgt_lang, PROMPT_COMMENT_CLEANING_SUBMISSION, PROMPT_COMMENT_CLEANING_SUBMISSION
+from helper_functions import extract_sentiment_emotion, sentiment_emotion_tagging_comments_langchain, clean_data_for_sentiment, validate_qwen_response, get_previous_week_range, classify_comments_for_cleaning_with_models_time_langChain, load_tokenizer_model, translate_comments, prepare_data_for_translation, clean_data_after_preparation
 from scrapping_reddit import initialize_reddit_client, scrape_subreddits, save_scrapped_reddit_data_csvJson
 import asyncio
 import pandas as pd
@@ -63,28 +63,27 @@ async def main():
     # Assuming df is your DataFrame
     print("Columns at validation: ", validated_model_response.columns.tolist())
     cleaned_df = clean_data_for_sentiment(validated_model_response)
-
     cleaned_df.to_csv("cleaned.csv")
     
-    print("generating sentiment of response..")
-    #TODO: generate sentiment of the response using any SOTA open-source LLM model.
+    print("performing sentiment and emotion tagging using llama3.1.....")
+    df_emotions = await sentiment_emotion_tagging_comments_langchain(PROMPT_SENTIMENT_EMOTION, MODEL_EMOTION_TAGGING, cleaned_df)
+    df_emotions.to_csv("emotion_tagging.csv")
 
+    print("cleaning response after emotion tagging...")
+    cleaned_df_emotions = extract_sentiment_emotion(df_emotions, "llama3.1:8b_sentiment_emotion_response")
+    print("saving cleaned emotions df...")
+    cleaned_df_emotions.to_csv("cleaned_df_emotions.csv")
+
+    reddit_submission_prepared_data = prepare_data_reddit_submission(cleaned_df_emotions)
+    print("saving prepared reddit data for supabase...")
+    
     print("Creating supbase connection..")
     supabase_client = await create_supabase_connection()
     print("Supabase connection created.. ")
 
-    print("ehader of cleaned data: ", cleaned_df.iloc[0])
-    reddit_submission_prepared_data = prepare_data_reddit_submission(cleaned_df)
-    #reddit_submission_prepared_data.to_json("reddit_submission_prepared_data.json")
-    print("saving prepared reddit data for supabase...")
-    print("prepared data is: ")
-    print(reddit_submission_prepared_data)
-
-
     print("Adding reddit submissions data to supabase table..")
-    reddit_supabase_sub_response = insert_data_into_table(supabase_client, REDDIT_SUBMISSIONS_TABLE ,reddit_submission_prepared_data)
+    reddit_supabase_sub_response = insert_data_into_table(supabase_client, REDDIT_SUBMISSIONS_TABLE, reddit_submission_prepared_data)
     print("Supabase submissions response ok")
-
 
     print("generating embeddings...")
     emb_comment = embed_text_in_column(cleaned_df,'comment')
@@ -93,12 +92,11 @@ async def main():
     
     print("structuring data for embeddings table...")
     reddit_embedding_prepared_data = prepare_data_reddit_embeddings(cleaned_df,emb_comment, emb_title, ["",""])
-    #print(reddit_embedding_prepared_data)
 
     print("adding data to table in supabase...")
     reddit_supabase_emb_response = insert_data_into_table(supabase_client, REDDIT_EMBEDDINGS_TABLE ,reddit_embedding_prepared_data)
     print("Supabase submissions response ok")
-
+    
 
 # Ensure the event loop is run properly
 if __name__ == "__main__":
