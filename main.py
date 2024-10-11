@@ -4,8 +4,9 @@ from scrapping_reddit import initialize_reddit_client, scrape_subreddits, save_s
 import asyncio
 import pandas as pd
 
+from generate_embeddings import embed_text_in_column
 from supabase_backend import create_supabase_connection, insert_data_into_table, fetch_data_from_table
-from supabase_helper_functions import prepare_data_reddit_submission
+from supabase_helper_functions import prepare_data_reddit_embeddings, prepare_data_reddit_submission
 
 async def main():
     
@@ -85,6 +86,19 @@ async def main():
     reddit_supabase_sub_response = insert_data_into_table(supabase_client, REDDIT_SUBMISSIONS_TABLE ,reddit_submission_prepared_data)
     print("Supabase submissions response ok")
 
+
+    print("generating embeddings...")
+    emb_comment = embed_text_in_column(cleaned_df,'comment')
+    emb_title = embed_text_in_column(cleaned_df,'submission_title')
+    print("embedding generated...")
+    
+    print("structuring data for embeddings table...")
+    reddit_embedding_prepared_data = prepare_data_reddit_embeddings(cleaned_df,emb_comment, emb_title, ["",""])
+    #print(reddit_embedding_prepared_data)
+
+    print("adding data to table in supabase...")
+    reddit_supabase_emb_response = insert_data_into_table(supabase_client, REDDIT_EMBEDDINGS_TABLE ,reddit_embedding_prepared_data)
+    print("Supabase submissions response ok")
 
 
 # Ensure the event loop is run properly
