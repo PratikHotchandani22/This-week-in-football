@@ -1,12 +1,12 @@
-from configurations import MODEL_EMOTION_TAGGING, PROMPT_SENTIMENT_EMOTION, REDDIT_COMMENT_CLEANING_LABELS, REDDIT_EMBEDDINGS_TABLE, REDDIT_SUMMARY_TABLE, REDDIT_SUBMISSIONS_TABLE, MODEL_COMMENT_CLEANING, REDDIT_SUBREDDITS, tgt_lang, PROMPT_COMMENT_CLEANING_SUBMISSION, PROMPT_COMMENT_CLEANING_SUBMISSION
-from helper_functions import extract_sentiment_emotion, sentiment_emotion_tagging_comments_langchain, clean_data_for_sentiment, validate_qwen_response, get_previous_week_range, classify_comments_for_cleaning_with_models_time_langChain, load_tokenizer_model, translate_comments, prepare_data_for_translation, clean_data_after_preparation
+from configurations import  PROMPT_FINAL_SUMMARY, MODEL_EMOTION_TAGGING, PROMPT_SENTIMENT_EMOTION, REDDIT_COMMENT_CLEANING_LABELS, REDDIT_EMBEDDINGS_TABLE, REDDIT_SUMMARY_TABLE, REDDIT_SUBMISSIONS_TABLE, MODEL_COMMENT_CLEANING, REDDIT_SUBREDDITS, tgt_lang, PROMPT_COMMENT_CLEANING_SUBMISSION, PROMPT_COMMENT_CLEANING_SUBMISSION
+from helper_functions import prepare_df_for_summary_supabase, clean_summary_response_from_llm, generate_summary_langchain, prepare_data_for_unique_submission_summary, extract_sentiment_emotion, sentiment_emotion_tagging_comments_langchain, clean_data_for_sentiment, validate_qwen_response, get_previous_week_range, classify_comments_for_cleaning_with_models_time_langChain, load_tokenizer_model, translate_comments, prepare_data_for_translation, clean_data_after_preparation
 from scrapping_reddit import initialize_reddit_client, scrape_subreddits, save_scrapped_reddit_data_csvJson
 import asyncio
 import pandas as pd
 
 from generate_embeddings import embed_text_in_column
 from supabase_backend import create_supabase_connection, insert_data_into_table, fetch_data_from_table
-from supabase_helper_functions import prepare_data_reddit_embeddings, prepare_data_reddit_submission
+from supabase_helper_functions import prepare_data_reddit_summary, prepare_data_reddit_embeddings, prepare_data_reddit_submission
 
 async def main():
     
@@ -73,10 +73,10 @@ async def main():
     cleaned_df_emotions = extract_sentiment_emotion(df_emotions, "llama3.1:8b_sentiment_emotion_response")
     print("saving cleaned emotions df...")
     cleaned_df_emotions.to_csv("cleaned_df_emotions.csv")
-
+    
     reddit_submission_prepared_data = prepare_data_reddit_submission(cleaned_df_emotions)
     print("saving prepared reddit data for supabase...")
-    
+
     print("Creating supbase connection..")
     supabase_client = await create_supabase_connection()
     print("Supabase connection created.. ")
@@ -85,17 +85,50 @@ async def main():
     reddit_supabase_sub_response = insert_data_into_table(supabase_client, REDDIT_SUBMISSIONS_TABLE, reddit_submission_prepared_data)
     print("Supabase submissions response ok")
 
+    #TODO: write code to generate summary of each unique submission
+    print("generating data for summary for each unique submission id....")
+    sub_prepared_data = prepare_data_for_unique_submission_summary(cleaned_df_emotions)
+    sub_prepared_data.to_csv("sub_prepared_data.csv")
+
+    print("generate summaryyy....")
+    summary_df = await generate_summary_langchain(PROMPT_FINAL_SUMMARY, MODEL_EMOTION_TAGGING, sub_prepared_data)
+    print("summary generateddd,,,")
+    summary_df.to_csv("summary_df.csv")
+
+    print("Cleaning summary response from model...")
+    cleaned_summary_df = clean_summary_response_from_llm(cleaned_df, summary_df)
+    cleaned_summary_df.to_csv("cleaned_summary_df.csv")
+    print("summary df cleaned...")
+
     print("generating embeddings...")
     emb_comment = embed_text_in_column(cleaned_df,'comment')
     emb_title = embed_text_in_column(cleaned_df,'submission_title')
+    emb_summary = embed_text_in_column(cleaned_summary_df, 'sub_summary')
     print("embedding generated...")
     
     print("structuring data for embeddings table...")
-    reddit_embedding_prepared_data = prepare_data_reddit_embeddings(cleaned_df,emb_comment, emb_title, ["",""])
+    reddit_embedding_prepared_data = prepare_data_reddit_embeddings(cleaned_df,emb_comment, emb_title, emb_summary)
 
-    print("adding data to table in supabase...")
+    print("adding embedding data to table in supabase...")
     reddit_supabase_emb_response = insert_data_into_table(supabase_client, REDDIT_EMBEDDINGS_TABLE ,reddit_embedding_prepared_data)
-    print("Supabase submissions response ok")
+    print("Supabase embeddings response ok")
+
+    print("pushing submission summaries to supabase...")
+    prepared_summary_df = prepare_df_for_summary_supabase(cleaned_summary_df, emb_summary)
+    prepared_summary_df.to_csv("prepared_summary_df.csv")
+    print("df prepared for summary")
+
+    print("preparing json for summary supabase..")
+    reddit_summary_prepared_data = prepare_data_reddit_summary(prepared_summary_df)
+    print("json summarty data is: ",reddit_summary_prepared_data)
+    print("json data prepared...")
+
+    print("adding summary data to table in supabase...")
+    reddit_supabase_emb_response = insert_data_into_table(supabase_client, REDDIT_SUMMARY_TABLE ,reddit_summary_prepared_data)
+    print("Supabase embeddings response ok")
+
+
+    #TODO: write code to generate summary of a previous week (date range identified above)
     
 
 # Ensure the event loop is run properly

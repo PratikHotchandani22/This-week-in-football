@@ -434,9 +434,6 @@ def validate_qwen_response(df, labels_list):
 def clean_data_for_sentiment(df):
 
     drop_columns = ['comments', 'original_comments','val_comments','val_comments_langugage']
-    
-    # Assuming df is your DataFrame
-    #df = df.drop(df.columns[0], axis=1)
     df = df.drop(columns=drop_columns)
     df['submission_date'] = pd.to_datetime(df['submission_date'])
 
@@ -488,7 +485,7 @@ async def sentiment_emotion_tagging_comments_langchain(prompt, model_name, df, b
 
     return df
 
-def extract_sentiment_emotion(df, response_column):
+def extract_sentiment_emotion_old(df, response_column):
     # Define the new column names
     new_columns = ['sub_title_sentiment', 'sub_title_emotions', 'comment_sentiment', 'comment_emotions']
 
@@ -538,3 +535,197 @@ def extract_sentiment_emotion(df, response_column):
     df = df.drop(columns=["llama3.1:8b_sentiment_emotion_response"])
 
     return df
+
+def extract_sentiment_emotion(df, response_column):
+    # Define the new column names
+    new_columns = ['sub_title_sentiment', 'sub_title_emotions', 'comment_sentiment', 'comment_emotions']
+
+    # Initialize empty lists for each column
+    submission_title_sentiment = []
+    submission_title_emotions = []
+    comment_sentiment = []
+    comment_emotions = []
+
+    # Iterate over each row in the DataFrame
+    for response in df[response_column]:
+        # Ensure response is a string, handle NaN/float cases
+        if isinstance(response, float):  # Handles NaN or non-string cases
+            response = ""
+
+        # Extract Submission Title Sentiment
+        submission_title_sentiment_match = re.search(r'Submission Title Sentiment: (.*)', response)
+        if submission_title_sentiment_match:
+            submission_title_sentiment.append(submission_title_sentiment_match.group(1).strip())
+        else:
+            submission_title_sentiment.append(None)
+
+        # Extract Submission Title Emotions
+        submission_title_emotions_match = re.search(r'Submission Title Emotions: (.*)', response)
+        if submission_title_emotions_match:
+            submission_title_emotions.append(submission_title_emotions_match.group(1).strip())
+        else:
+            submission_title_emotions.append(None)
+
+        # Extract Comment Sentiment
+        comment_sentiment_match = re.search(r'Comment Sentiment: (.*)', response)
+        if comment_sentiment_match:
+            comment_sentiment.append(comment_sentiment_match.group(1).strip())
+        else:
+            comment_sentiment.append(None)
+
+        # Extract Comment Emotions
+        comment_emotions_match = re.search(r'Comment Emotions: (.*)', response)
+        if comment_emotions_match:
+            comment_emotions.append(comment_emotions_match.group(1).strip())
+        else:
+            comment_emotions.append(None)
+
+    # Add the extracted values as new columns to the DataFrame
+    df[new_columns[0]] = submission_title_sentiment
+    df[new_columns[1]] = submission_title_emotions
+    df[new_columns[2]] = comment_sentiment
+    df[new_columns[3]] = comment_emotions
+
+    # Drop the specified column
+    df = df.drop(columns=["llama3.1:8b_sentiment_emotion_response"])
+
+    return df
+
+def create_summary_prompt_for_submission(submission_group):
+    """
+    Create a structured summary string for a single submission based on the submission and its comments.
+    """
+    # Extract submission-level data (the same for all comments within this submission)
+    submission_title = submission_group['submission_title'].iloc[0]
+    sub_sentiment = submission_group['sub_title_sentiment'].iloc[0]
+    sub_emotion = submission_group['sub_title_emotions'].iloc[0]
+    sub_upvotes = submission_group['no_of_upvotes'].iloc[0]
+    
+    # Start the structured summary string with submission information
+    structured_summary = f"submission_title: {submission_title} {{sentiment: {sub_sentiment}, emotion: {sub_emotion}, upvotes: {sub_upvotes}}}, comments: ["
+    
+    # Loop through each comment and append to the summary string
+    comment_summaries = []
+    for _, row in submission_group.iterrows():
+        comment_text = row['comment']
+        comment_summary = (
+            f'"{comment_text} {{sentiment: {row["comment_sentiment"]}, '
+            f'emotion: {row["comment_emotions"]}, upvotes: {row["comments_upvote"]}}}"'
+        )
+        comment_summaries.append(comment_summary)
+    
+    # Join all the comment summaries and close the structured string
+    structured_summary += ', '.join(comment_summaries) + ']'
+
+    return structured_summary
+
+def prepare_data_for_unique_submission_summary(df):
+
+    df = df[df['is_conversation'] != 'Bot']
+
+    # Step 1: Get unique submission_ids
+    unique_submission_ids = df['submission_id'].unique()
+
+    # Step 2: Create the new DataFrame with two columns: submission_id, structured_data_for_summary
+    summary_data = {
+        'submission_id': [],
+        'structured_data_for_summary': []
+    }
+
+    # Step 4: Iterate through each unique submission_id, create a grouped DataFrame, and generate structured summary
+    for submission_id in unique_submission_ids:
+        # Create a DataFrame for this specific submission_id
+        submission_group = df[df['submission_id'] == submission_id]
+        
+        # Generate the structured summary
+        structured_summary = create_summary_prompt_for_submission(submission_group)
+        
+        # Append to summary_data
+        summary_data['submission_id'].append(submission_id)
+        summary_data['structured_data_for_summary'].append(structured_summary)
+
+    summary_df = pd.DataFrame(summary_data)
+
+    return summary_df
+
+async def generate_summary_langchain(prompt, model_name, df, batch_size=100):
+    summaries = []  # Store model responses
+
+    try:
+        print("Prompt template is valid.")
+
+        # Define the LLM with customizable parameters
+        llm = ChatOllama(
+            model=model_name,
+            temperature=0.2  # Adjust temperature as needed
+        )
+
+        # Iterate over DataFrame rows in batches
+        for i in range(0, len(df), batch_size):
+            print(f"Processing submissions from row: {i} with model: {llm.model} ...")
+
+            # Process each batch
+            for row in df[i:i + batch_size].itertuples(index=True):
+                # Prepare the messages for the LLM
+                messages = [
+                    ("system", prompt),
+                    ("human", f"Submission title and comments: {row.structured_data_for_summary}")
+                ]
+
+                # Invoke the model
+                response = llm.invoke(messages)
+
+                # Append the response
+                summaries.append(response.content)
+
+        # Add the summaries as a new column in the original DataFrame
+        df[f"{llm.model}_summary_response"] = pd.Series(summaries)
+
+    except Exception as e:
+        print(f"Error occurred: {e}")
+        return df  # Return DataFrame with summaries on error
+
+    return df
+
+def clean_summary_response_from_llm(original_df, sub_df):
+
+    # Remove quotes from the 'comments' column
+    sub_df['llama3.1:8b_summary_response'] = sub_df['llama3.1:8b_summary_response'].str.replace('"', '', regex=False)
+
+    sub_df['llama3.1:8b_summary_response'] = sub_df['llama3.1:8b_summary_response'].str.replace(':', '', regex=False)
+
+    # Remove "Overall Summary" from the 'llama3.1:8b_summary_response' column
+    sub_df['llama3.1:8b_summary_response'] = sub_df['llama3.1:8b_summary_response'].str.replace('Overall Summary', '', regex=False)
+
+    # Rename the column
+    sub_df = sub_df.rename(columns={'llama3.1:8b_summary_response': 'sub_summary'})
+
+    # Merge the 'sub_summary' column from sub_df into original_df based on 'submission_id'
+    merged_df = pd.merge(original_df, sub_df[['submission_id', 'sub_summary']], on='submission_id', how='left')
+
+    return merged_df
+
+def prepare_df_for_summary_supabase(cleaned_summary_df: pd.DataFrame, emb_summary: list) -> pd.DataFrame:
+    # Ensure that the length of emb_summary matches the number of rows in cleaned_summary_df
+    if len(emb_summary) != len(cleaned_summary_df):
+        raise ValueError("The length of emb_summary does not match the number of rows in cleaned_summary_df.")
+    
+    # Create a new DataFrame with submission_id, summary, and embeddings
+    prepared_df = pd.DataFrame({
+        'submission_id': cleaned_summary_df['submission_id'],
+        'summary': cleaned_summary_df['sub_summary'],
+        'summary_embedding': emb_summary
+    })
+    
+    # Drop duplicates based on 'submission_id' and 'summary', ignoring 'summary_embedding'
+    prepared_df.drop_duplicates(subset=['submission_id'], inplace=True)
+    
+
+    return prepared_df
+
+
+"""
+def prepare_data_for_weekly_submission_summary(df):
+    return prepared_df
+
+"""
