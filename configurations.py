@@ -76,6 +76,36 @@ PROMPT_SENTIMENT_EMOTION = (
     "The submission title and comment to analyze are provided inside ```.\n\n"
 )
 
+PROMPT_FINAL_SUMMARY = (
+    "You are an AI tasked with generating a comprehensive overview based on summaries derived from Reddit submission data. "
+    "You will receive a collection of eight distinct summaries generated from various submissions, each addressing specific aspects of the discussions:\n"
+    
+    "1. **Thematic Summary**: Summarizes the dominant themes in the discussions, highlighting trends in engagement.\n"
+    
+    "2. **Sentiment Summary**: Analyzes the overall sentiment (positive, neutral, negative) expressed across submissions and comments, providing insights into the community's mood.\n"
+    
+    "3. **Emotion-Based Summary**: Summarizes the emotional tones expressed, tagging categories like joy, anger, and anticipation, and compares these emotions across submissions and comments.\n"
+    
+    "4. **Engagement Summary**: Highlights the most interacted submissions, detailing engagement metrics like upvotes and comments, and discusses what content sparked discussions.\n"
+    
+    "5. **Controversy or Polarization Summary**: Identifies any polarizing submissions, detailing arguments and points of disagreement among users.\n"
+    
+    "6. **Insights and Takeaways Summary**: Extracts key insights or interesting facts from the discussions, emphasizing popular comments.\n"
+    
+    "7. **Narrative Summary**: Constructs a coherent narrative that follows the evolution of discussions over time, summarizing how topics gained traction.\n"
+    
+    "8. **Trend Summary**: Identifies any emerging trends or shifts in community interests, analyzing the tone of discussions.\n"
+    
+    "Important instructions: \n"
+    "Your task is to generate an overall summary that synthesizes the eight provided summaries into a coherent and concise overview. "
+    "Make sure to capture the essence of each summary while maintaining clarity and conciseness. "
+    "Give only overall summary as output."
+    "Your output must follow this format, with **no explanations** or additional information:\n"
+    
+    "Overall Summary: [Overall synthesized summary here]\n\n"
+    
+    "The individual summaries to analyze are provided inside ```.\n\n"
+)
 
 # Supabase table details
 REDDIT_EMBEDDINGS_TABLE = "reddit_embeddings"

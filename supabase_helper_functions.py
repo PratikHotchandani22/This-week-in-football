@@ -35,7 +35,6 @@ def prepare_data_reddit_submission(models_response: pd.DataFrame):
     # Return the list of dictionaries
     return all_data
 
-
 def prepare_data_reddit_embeddings(df: pd.DataFrame, emb_comment: list, emb_title: list, emb_summary: list):
     # Initialize a list to hold all the prepared data for each row
     all_data = []
@@ -46,7 +45,27 @@ def prepare_data_reddit_embeddings(df: pd.DataFrame, emb_comment: list, emb_titl
         data = {
             "submission_id": row.get("submission_id", None),   # Extract submission_id
             "title_emb": emb_title[idx] if idx < len(emb_title) else None,  # Handle embedding for title
-            "comment_emb": emb_comment[idx] if idx < len(emb_comment) else None # Handle embedding for comment
+            "comment_emb": emb_comment[idx] if idx < len(emb_comment) else None, # Handle embedding for comment
+            "sub_emb": emb_summary[idx] if idx < len(emb_summary) else None # Handle embedding for comment
+        }
+
+        # Append the prepared data for this row to the list
+        all_data.append(data)
+
+    # Return the list of dictionaries (ready for insertion into the database)
+    return all_data
+
+def prepare_data_reddit_summary(df: pd.DataFrame):
+    # Initialize a list to hold all the prepared data for each row
+    all_data = []
+
+    # Iterate over each row in the DataFrame and corresponding embeddings
+    for idx, row_data in df.iterrows():  # Unpack the index and row data
+        # Prepare the JSON structure for each row, including the embeddings
+        data = {
+            "submission_id": row_data.get("submission_id", None),   # Extract submission_id
+            "summary_embedding": row_data.get("summary_embedding", None),  # Handle embedding for summary
+            "summary": row_data.get("summary", None)   # Extract the summary from the DataFrame
         }
 
         # Append the prepared data for this row to the list
