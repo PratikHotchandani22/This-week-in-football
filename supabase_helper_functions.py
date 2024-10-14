@@ -73,3 +73,23 @@ def prepare_data_reddit_summary(df: pd.DataFrame):
 
     # Return the list of dictionaries (ready for insertion into the database)
     return all_data
+
+def prepare_data_reddit_weekly_summary(df: pd.DataFrame, emb_weekly_summary: list):
+    # Initialize a list to hold all the prepared data for each row
+    all_data = []
+
+    # Iterate over each row in the DataFrame and corresponding embeddings
+    for idx, row_data in df.iterrows():  # Unpack the index and row data
+        # Prepare the JSON structure for each row, including the embeddings
+        data = {
+            "week_start_date": row_data["week_start_date"].isoformat() if isinstance(row_data["week_start_date"], pd.Timestamp) else None,
+            "week_end_date": row_data["week_end_date"].isoformat() if isinstance(row_data["week_end_date"], pd.Timestamp) else None,  # Ensure it's timezone-aware
+            "weekly_summary": row_data.get("weekly_summary", None),   # Extract the summary from the DataFrame
+            "weekly_summary_embedding": emb_weekly_summary[idx] if idx < len(emb_weekly_summary) else None # Handle embedding for comment
+        }
+
+        # Append the prepared data for this row to the list
+        all_data.append(data)
+
+    # Return the list of dictionaries (ready for insertion into the database)
+    return all_data
