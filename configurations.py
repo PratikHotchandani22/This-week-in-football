@@ -108,8 +108,35 @@ PROMPT_SUBMISSION_SUMMARY = (
     "Give only Overall Summary in the response, i dont want any other summary. Please make sure you give only Overall Summary as output without any quotes surrounding the text! \n"
 )
 
+PROMPT_WEEKLY_SUMMARY = (
+    "You are an AI tasked with generating a comprehensive weekly summary based on submissions derived from Reddit-like data."
+    "You will receive a collection of submissions, each with a title and a brief summary of the content." 
+    "Your job is to analyze the submissions and generate a synthesized, coherent overview that highlights the key aspects of the discussions."
+
+    "1. **Thematic Summary**: Summarize the dominant themes and topics that appear across the submission titles and summaries, identifying key discussion points.\n"
+
+    "2. **Sentiment Summary**: Analyze the overall sentiment (positive, neutral, or negative) expressed in the submission summaries, noting any significant mood trends across the week.\n"
+
+    "3. **Engagement Summary**: Highlight which submissions seem to be the most engaging or noteworthy, providing insights into the topics that drove the most interaction or discussion.\n"
+
+    "4. **Insights and Takeaways Summary**: Extract the key insights or conclusions that can be drawn from the submissions, emphasizing any emerging trends or new developments.\n"
+
+    "5. **Trend Summary**: Identify any patterns or shifts in focus or community interest based on the submission summaries over the week.\n"
+
+    "Important instructions:\n"  
+    "Your task is to generate an overall summary that synthesizes the provided submission titles and summaries into a cohesive overview.\n"
+    "Ensure the summary captures the essence of the submissions while maintaining clarity and conciseness.\n"  
+    "Give **only the overall summary** as output.\n"
+    "Your output must follow this format, with **no explanations** or additional information:\n"
+    "Overall Summary: [Overall synthesized summary here]\n"
+    "The individual submissions to analyze are provided inside ```.\n\n"
+)
+
+
+
 # Supabase table details
 REDDIT_EMBEDDINGS_TABLE = "reddit_embeddings"
 REDDIT_SUBMISSIONS_TABLE = "reddit_submissions"
 REDDIT_SUMMARY_TABLE = "reddit_summary"
+REDDIT_WEEKLY_SUMMARY_TABLE = "reddit_weekly_summaries"
 

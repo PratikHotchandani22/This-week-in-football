@@ -360,9 +360,6 @@ async def classify_comments_for_cleaning_with_models_time_langChain(prompt, mode
     try:
         print("Prompt template is valid.")
 
-        # Start the timer for the model
-        start_time = time.time()
-
         # Define the LLM with customizable parameters
         llm = ChatOllama(
             model=model_name,
@@ -393,7 +390,7 @@ async def classify_comments_for_cleaning_with_models_time_langChain(prompt, mode
 
     except Exception as e:
         print(f"Error occurred: {e}")
-        return df, pd.DataFrame()  # Return empty DataFrame for time_df on error
+        return df
 
     return df
 
@@ -754,8 +751,57 @@ def prepare_df_for_summary_supabase(cleaned_summary_df: pd.DataFrame, emb_summar
     
     return prepared_df
 
-"""
-def prepare_data_for_weekly_submission_summary(df):
-    return prepared_df
+def prepare_prompt_for_weekly_submission_summary(df):
+    # Drop duplicates based on 'submission_id'
+    df.drop_duplicates(subset=['submission_id'], inplace=True)
 
-"""
+    # Create a single prompt string by concatenating all submission titles and summaries
+    prompt_string = ''
+    for idx, row in df.iterrows():
+        prompt_string += f"{row['submission_title']}: {row['sub_summary']}\n"
+
+    return prompt_string.strip()  # Remove trailing newline
+
+
+async def generate_weekly_summary_langchain(base_prompt, weekly_summary_prompt, model, start_date, end_date):
+    
+    weekly_summary = pd.DataFrame(columns=['week_start_date', 'week_end_date', 'llm_summary_response'])  # Store model responses
+
+    try:
+        print("Prompt template is valid.")
+
+        # Define the LLM with customizable parameters
+        llm = ChatOllama(
+            model=model,
+            temperature=0.2  # Adjust temperature as needed
+        )
+
+        messages = [
+            ("system", base_prompt),
+            ("human", weekly_summary_prompt)
+        ]
+
+        # Invoke the model
+        response = llm.invoke(messages)
+
+        # Create a new DataFrame for the new row
+        new_row = pd.DataFrame({
+            'week_start_date': [start_date],
+            'week_end_date': [end_date],
+            'llm_summary_response': [response.content]
+        })
+
+        # Use pd.concat to add the new row to the existing DataFrame
+        weekly_summary = pd.concat([weekly_summary, new_row], ignore_index=True)
+
+        # Convert row_data dates to pd.Timestamp if they are strings or other types
+        weekly_summary["week_start_date"] = pd.to_datetime(weekly_summary["week_start_date"])
+        weekly_summary["week_end_date"] = pd.to_datetime(weekly_summary["week_end_date"])
+
+
+
+    except Exception as e:
+        print(f"Error occurred: {e}")
+        return weekly_summary  # Return DataFrame with summaries on error
+
+    return weekly_summary

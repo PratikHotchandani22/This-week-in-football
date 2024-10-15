@@ -10,7 +10,7 @@ async def create_supabase_connection():
 
 
 # Insert data into the table
-def insert_data_into_table(supabase, table_name, job_data_json):
+async def insert_data_into_table(supabase, table_name, job_data_json):
     response = supabase.table(table_name).insert(job_data_json).execute()
     print("Data insertion table name: ")
     print(f"Table name: {table_name}")
@@ -18,7 +18,7 @@ def insert_data_into_table(supabase, table_name, job_data_json):
     return response
 
 # Fetch information from the database  
-def fetch_data_from_table(supabase, table_name):
+async def fetch_data_from_table(supabase, table_name):
     print(f"Fetching data from table: {table_name}")
     response = supabase.table('job_info').select('*').execute()
     print(f"Response is: {response}")
