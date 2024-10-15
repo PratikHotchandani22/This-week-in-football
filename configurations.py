@@ -76,7 +76,7 @@ PROMPT_SENTIMENT_EMOTION = (
     "The submission title and comment to analyze are provided inside ```.\n\n"
 )
 
-PROMPT_FINAL_SUMMARY = (
+PROMPT_SUBMISSION_SUMMARY = (
     "You are an AI tasked with generating a comprehensive overview based on summaries derived from Reddit submission data. "
     "You will receive a collection of eight distinct summaries generated from various submissions, each addressing specific aspects of the discussions:\n"
     
@@ -103,8 +103,9 @@ PROMPT_FINAL_SUMMARY = (
     "Your output must follow this format, with **no explanations** or additional information:\n"
     
     "Overall Summary: [Overall synthesized summary here]\n\n"
-    
-    "The individual summaries to analyze are provided inside ```.\n\n"
+
+    "FINAL INSTRUCTION: \n"
+    "Give only Overall Summary in the response, i dont want any other summary. Please make sure you give only Overall Summary as output without any quotes surrounding the text! \n"
 )
 
 # Supabase table details

@@ -1,4 +1,4 @@
-from configurations import  PROMPT_FINAL_SUMMARY, MODEL_EMOTION_TAGGING, PROMPT_SENTIMENT_EMOTION, REDDIT_COMMENT_CLEANING_LABELS, REDDIT_EMBEDDINGS_TABLE, REDDIT_SUMMARY_TABLE, REDDIT_SUBMISSIONS_TABLE, MODEL_COMMENT_CLEANING, REDDIT_SUBREDDITS, tgt_lang, PROMPT_COMMENT_CLEANING_SUBMISSION, PROMPT_COMMENT_CLEANING_SUBMISSION
+from configurations import  PROMPT_SUBMISSION_SUMMARY, MODEL_EMOTION_TAGGING, PROMPT_SENTIMENT_EMOTION, REDDIT_COMMENT_CLEANING_LABELS, REDDIT_EMBEDDINGS_TABLE, REDDIT_SUMMARY_TABLE, REDDIT_SUBMISSIONS_TABLE, MODEL_COMMENT_CLEANING, REDDIT_SUBREDDITS, tgt_lang, PROMPT_COMMENT_CLEANING_SUBMISSION, PROMPT_COMMENT_CLEANING_SUBMISSION
 from helper_functions import prepare_df_for_summary_supabase, clean_summary_response_from_llm, generate_summary_langchain, prepare_data_for_unique_submission_summary, extract_sentiment_emotion, sentiment_emotion_tagging_comments_langchain, clean_data_for_sentiment, validate_qwen_response, get_previous_week_range, classify_comments_for_cleaning_with_models_time_langChain, load_tokenizer_model, translate_comments, prepare_data_for_translation, clean_data_after_preparation
 from scrapping_reddit import initialize_reddit_client, scrape_subreddits, save_scrapped_reddit_data_csvJson
 import asyncio
@@ -91,7 +91,7 @@ async def main():
     sub_prepared_data.to_csv("sub_prepared_data.csv")
 
     print("generate summaryyy....")
-    summary_df = await generate_summary_langchain(PROMPT_FINAL_SUMMARY, MODEL_EMOTION_TAGGING, sub_prepared_data)
+    summary_df = await generate_summary_langchain(PROMPT_SUBMISSION_SUMMARY, MODEL_EMOTION_TAGGING, sub_prepared_data)
     print("summary generateddd,,,")
     summary_df.to_csv("summary_df.csv")
 
@@ -101,20 +101,27 @@ async def main():
     print("summary df cleaned...")
 
     print("generating embeddings...")
-    emb_comment = embed_text_in_column(cleaned_df,'comment')
-    emb_title = embed_text_in_column(cleaned_df,'submission_title')
-    emb_summary = embed_text_in_column(cleaned_summary_df, 'sub_summary')
+    emb_comment_df = embed_text_in_column(cleaned_df,'comment')
+    emb_title_df = embed_text_in_column(cleaned_df,'submission_title')
+    emb_summary_df = embed_text_in_column(cleaned_summary_df, 'sub_summary')
+     
     print("embedding generated...")
     
     print("structuring data for embeddings table...")
-    reddit_embedding_prepared_data = prepare_data_reddit_embeddings(cleaned_df,emb_comment, emb_title, emb_summary)
+    print("passing in the unique submissions list...")
+    embeddings_df, reddit_embedding_prepared_data = prepare_data_reddit_embeddings(emb_comment_df, emb_title_df, emb_summary_df)
+    embeddings_df.to_csv("embeddings_file.csv")
+    # Convert list of dictionaries to a DataFrame
+    df_all_data = pd.DataFrame(reddit_embedding_prepared_data)
+    # Save to CSV file
+    df_all_data.to_csv('reddit_embeddings.csv', index=False)
 
     print("adding embedding data to table in supabase...")
     reddit_supabase_emb_response = insert_data_into_table(supabase_client, REDDIT_EMBEDDINGS_TABLE ,reddit_embedding_prepared_data)
     print("Supabase embeddings response ok")
 
     print("pushing submission summaries to supabase...")
-    prepared_summary_df = prepare_df_for_summary_supabase(cleaned_summary_df, emb_summary)
+    prepared_summary_df = prepare_df_for_summary_supabase(cleaned_summary_df, emb_summary_df)
     prepared_summary_df.to_csv("prepared_summary_df.csv")
     print("df prepared for summary")
 
