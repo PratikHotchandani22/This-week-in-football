@@ -49,7 +49,7 @@ async def scrape_subreddits(subreddit_list, reddit, start_date, end_date):
         subreddit = await reddit.subreddit(subreddit_name)
 
         # Fetch submissions in the subreddit and filter by date range
-        async for submission in subreddit.hot(limit=3):  # Adjust limit as needed
+        async for submission in subreddit.hot(limit=2):  # Adjust limit as needed
             submission_date = datetime.fromtimestamp(submission.created_utc, tz=timezone.utc).date()
 
             # Check if submission falls within the date range

@@ -204,6 +204,9 @@ def clean_data_after_preparation(df):
 
     # Apply the check_valid_sentence function to the 'comments' column
     df_filtered['val_comments'] = df_filtered['comments'].apply(check_valid_sentence)
+
+    # Handling cases where the column 'comments_upvote' has a string value
+    df_filtered['comments_upvote'] = [0 if isinstance(x, str) else x for x in df_filtered['comments_upvote']]
     
     return df_filtered
 
@@ -684,12 +687,30 @@ async def generate_summary_langchain(prompt, model_name, df, batch_size=100):
 
     return df
 
+# Define a function to extract "Overall Summary"
+def extract_overall_summary(text):
+    start = text.find("Overall Summary:")
+    if start != -1:
+        return text[start:].strip()  # Extract from "Overall Summary" to the end
+    return text  # If no "Overall Summary" is found, return the original text
+
 def clean_summary_response_from_llm(original_df, sub_df):
 
+    # Create a condition to filter out NaN values and empty strings
+    sub_df = sub_df[sub_df['llama3.1:8b_summary_response'].notna() & (sub_df['llama3.1:8b_summary_response'] != '')]
+
     # Remove quotes from the 'comments' column
-    sub_df['llama3.1:8b_summary_response'] = sub_df['llama3.1:8b_summary_response'].str.replace('"', '', regex=False)
+    sub_df['llama3.1:8b_summary_response'] = sub_df['llama3.1:8b_summary_response'].str.replace('"', '', regex=False)\
+
+    # Remove all single quotes (') including the triple ones
+    sub_df['llama3.1:8b_summary_response'] = sub_df['llama3.1:8b_summary_response'].str.replace(r"'", '', regex=True)
+
+    sub_df['llama3.1:8b_summary_response'] = sub_df['llama3.1:8b_summary_response'].str.strip("'")
 
     sub_df['llama3.1:8b_summary_response'] = sub_df['llama3.1:8b_summary_response'].str.replace(':', '', regex=False)
+
+    # Apply the function to the 'summary' column
+    sub_df['llama3.1:8b_summary_response'] = sub_df['llama3.1:8b_summary_response'].apply(extract_overall_summary)
 
     # Remove "Overall Summary" from the 'llama3.1:8b_summary_response' column
     sub_df['llama3.1:8b_summary_response'] = sub_df['llama3.1:8b_summary_response'].str.replace('Overall Summary', '', regex=False)
@@ -700,24 +721,34 @@ def clean_summary_response_from_llm(original_df, sub_df):
     # Merge the 'sub_summary' column from sub_df into original_df based on 'submission_id'
     merged_df = pd.merge(original_df, sub_df[['submission_id', 'sub_summary']], on='submission_id', how='left')
 
+    # Create a condition to filter out NaN values and empty strings
+    merged_df = merged_df[merged_df['sub_summary'].notna() & (merged_df['sub_summary'] != '')]
+
     return merged_df
 
-def prepare_df_for_summary_supabase(cleaned_summary_df: pd.DataFrame, emb_summary: list) -> pd.DataFrame:
-    # Ensure that the length of emb_summary matches the number of rows in cleaned_summary_df
-    if len(emb_summary) != len(cleaned_summary_df):
-        raise ValueError("The length of emb_summary does not match the number of rows in cleaned_summary_df.")
+def prepare_df_for_summary_supabase(cleaned_summary_df: pd.DataFrame, emb_summary_df: pd.DataFrame) -> pd.DataFrame:
     
-    # Create a new DataFrame with submission_id, summary, and embeddings
-    prepared_df = pd.DataFrame({
-        'submission_id': cleaned_summary_df['submission_id'],
-        'summary': cleaned_summary_df['sub_summary'],
-        'summary_embedding': emb_summary
-    })
+    # Filter out rows where 'is_conversation' is 'Bot'
+    cleaned_summary_df = cleaned_summary_df[cleaned_summary_df['is_conversation'] != 'Bot']
+    
+    # Remove duplicates in emb_summary_df
+    emb_summary_df = emb_summary_df.drop_duplicates()
+    
+    # Left merge cleaned_summary_df and emb_summary_df on 'submission_id'
+    merged_df = pd.merge(cleaned_summary_df, emb_summary_df, on='submission_id', how='left')
+    
+    # Keep only the required columns: 'submission_id', 'summary', and 'summary_embedding'
+    prepared_df = merged_df[['submission_id', 'sub_summary', 'sub_emb']]
+    
+    # Rename 'sub_summary' to 'summary' for consistency
+    prepared_df.rename(columns={'sub_summary': 'summary'}, inplace=True)
+
+    # Rename 'sub_summary' to 'summary' for consistency
+    prepared_df.rename(columns={'sub_emb': 'summary_embedding'}, inplace=True)
     
     # Drop duplicates based on 'submission_id'
     prepared_df.drop_duplicates(subset=['submission_id'], inplace=True)
     
-
     return prepared_df
 
 def prepare_prompt_for_weekly_submission_summary(df):

@@ -1,5 +1,7 @@
 import pandas as pd
 from datetime import datetime
+import ast
+import numpy as np
 
 def prepare_data_reddit_submission(models_response: pd.DataFrame):
     # Initialize a list to hold all the prepared data for each row
@@ -17,7 +19,6 @@ def prepare_data_reddit_submission(models_response: pd.DataFrame):
             "submission_url": row.get("submission_url", None),
             "submission_object_url": row.get("submission_object_url", None),
             "comment": row.get("comment", None),  # Assuming this field contains the comment text
-            "sentiment": row.get("sentiment", None),  # Assuming sentiment analysis is performed
             "is_conversation": row.get("is_conversation", None),  # Assuming category is assigned
             "subreddit": row.get("subreddit", None),  # Subreddit field
             "links_in_comment": row.get("links_in_comment", None),
@@ -35,25 +36,44 @@ def prepare_data_reddit_submission(models_response: pd.DataFrame):
     # Return the list of dictionaries
     return all_data
 
-def prepare_data_reddit_embeddings(df: pd.DataFrame, emb_comment: list, emb_title: list, emb_summary: list):
-    # Initialize a list to hold all the prepared data for each row
-    all_data = []
+def safe_eval(x):
+    if isinstance(x, str):  # Only apply literal_eval if the value is a string
+        try:
+            return tuple(ast.literal_eval(x))
+        except (ValueError, SyntaxError):  # Catch exceptions if literal_eval fails
+            return ()
+    elif isinstance(x, (list, tuple, np.ndarray)):  # If it's already a list, tuple, or array, return as a tuple
+        return tuple(x)
+    else:
+        return ()
 
-    # Iterate over each row in the DataFrame and corresponding embeddings
-    for idx, row in df.iterrows():
-        # Prepare the JSON structure for each row, including the embeddings
-        data = {
-            "submission_id": row.get("submission_id", None),   # Extract submission_id
-            "title_emb": emb_title[idx] if idx < len(emb_title) else None,  # Handle embedding for title
-            "comment_emb": emb_comment[idx] if idx < len(emb_comment) else None, # Handle embedding for comment
-            "sub_emb": emb_summary[idx] if idx < len(emb_summary) else None # Handle embedding for comment
-        }
+def prepare_data_reddit_embeddings(emb_comment_df: pd.DataFrame, emb_title_df: pd.DataFrame, emb_summary_df: pd.DataFrame):
+    
+ # Apply the safe_eval function to 'title_emb', 'sub_emb', and 'comment_emb'
+    emb_title_df['title_emb'] = emb_title_df['title_emb'].apply(safe_eval)
+    emb_summary_df['sub_emb'] = emb_summary_df['sub_emb'].apply(safe_eval)
+    emb_comment_df['comment_emb'] = emb_comment_df['comment_emb'].apply(safe_eval)
+    
+    # Drop duplicates (tuples are hashable, so this works)
+    emb_title_df = emb_title_df.drop_duplicates()
+    emb_summary_df = emb_summary_df.drop_duplicates()
 
-        # Append the prepared data for this row to the list
-        all_data.append(data)
+    # Merge the DataFrames on the 'submission_id' column
+    merged_df = pd.merge(emb_title_df, emb_summary_df, on='submission_id', how='left')
+    merged_df = pd.merge(merged_df, emb_comment_df, on='submission_id', how='left')
+    merged_df.drop(columns='comment_id', inplace=True)
 
-    # Return the list of dictionaries (ready for insertion into the database)
-    return all_data
+    # Convert back to lists after removing duplicates
+    merged_df['title_emb'] = merged_df['title_emb'].apply(lambda x: list(x))
+    merged_df['sub_emb'] = merged_df['sub_emb'].apply(lambda x: list(x) if pd.notnull(x) else [])
+    merged_df['comment_emb'] = merged_df['comment_emb'].apply(lambda x: list(x) if pd.notnull(x) else [])
+
+    # Replace NaN values with None for any other fields if necessary
+    merged_df = merged_df.where(pd.notnull(merged_df), None)
+
+    all_data = merged_df.to_dict(orient='records')
+
+    return merged_df, all_data
 
 def prepare_data_reddit_summary(df: pd.DataFrame):
     # Initialize a list to hold all the prepared data for each row
