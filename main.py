@@ -112,14 +112,14 @@ async def main():
     emb_comment_df = embed_text_in_column(cleaned_df,'comment')
     emb_title_df = embed_text_in_column(cleaned_df,'submission_title')
     emb_summary_df = embed_text_in_column(cleaned_summary_df, 'sub_summary')
-    emb_weekly_summary = embed_text_in_column(weekly_summary_df, 'llm_summary_response')
+    emb_weekly_summary_df = embed_text_in_column(weekly_summary_df, 'llm_summary_response')
 
     print("embedding generated...")
     
     print("structuring data for embeddings table...")
     print("passing in the unique submissions list...")
     embeddings_df, reddit_embedding_prepared_data = prepare_data_reddit_embeddings(emb_comment_df, emb_title_df, emb_summary_df)
-    embeddings_df.to_csv("embeddings_file.csv")
+
     # Convert list of dictionaries to a DataFrame
     df_all_data = pd.DataFrame(reddit_embedding_prepared_data)
     # Save to CSV file
@@ -144,7 +144,7 @@ async def main():
     print("Supabase embeddings response ok")
 
     print("preparing json for reddit weekly summary table...")
-    reddit_weekly_summary_supabase_json = prepare_data_reddit_weekly_summary(weekly_summary_df, emb_weekly_summary)
+    reddit_weekly_summary_supabase_json = prepare_data_reddit_weekly_summary(emb_weekly_summary_df)
 
     print("adding embedding data to table in supabase...")
     reddit_supabase_emb_response = await insert_data_into_table(supabase_client, REDDIT_WEEKLY_SUMMARY_TABLE, reddit_weekly_summary_supabase_json)
