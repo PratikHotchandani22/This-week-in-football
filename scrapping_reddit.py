@@ -2,6 +2,7 @@ import asyncpraw
 import pandas as pd
 from datetime import datetime, timezone
 from credentials import REDDIT_USER_AGENT, REDDIT_CLIENT_SECRET, REDDIT_CLIENT_ID
+import asyncio
 
 async def initialize_reddit_client():
     reddit = asyncpraw.Reddit(
@@ -47,9 +48,10 @@ async def scrape_subreddits(subreddit_list, reddit, start_date, end_date):
     # Loop through each subreddit in the list
     for subreddit_name in subreddit_list:
         subreddit = await reddit.subreddit(subreddit_name)
+        await asyncio.sleep(2)  # Adds a 2-second delay
 
         # Fetch submissions in the subreddit and filter by date range
-        async for submission in subreddit.hot(limit=2):  # Adjust limit as needed
+        async for submission in subreddit.hot(limit=3):  # Adjust limit as needed
             submission_date = datetime.fromtimestamp(submission.created_utc, tz=timezone.utc).date()
 
             # Check if submission falls within the date range
@@ -57,7 +59,8 @@ async def scrape_subreddits(subreddit_list, reddit, start_date, end_date):
                 await submission.load()  # Load full submission to access comments
 
                 # Retrieve top 10 comments
-                await submission.comments.replace_more(limit=0)  # Expand all comments
+                await submission.comments.replace_more(limit=5)  # Expand all comments
+                await asyncio.sleep(2)  # Adds a 2-second delay
                 top_comments = submission.comments[:2]  # Get top 100 comments
                 comments_text = [comment.body for comment in top_comments] if top_comments else ["No comments"]
                 comments_id = [comment.id for comment in top_comments] if top_comments else ["No comments"]

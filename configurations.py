@@ -132,8 +132,6 @@ PROMPT_WEEKLY_SUMMARY = (
     "The individual submissions to analyze are provided inside ```.\n\n"
 )
 
-
-
 # Supabase table details
 REDDIT_EMBEDDINGS_TABLE = "reddit_embeddings"
 REDDIT_SUBMISSIONS_TABLE = "reddit_submissions"

@@ -23,8 +23,8 @@ async def main():
     print("scrapped data is: ", scrapped_data)
     await reddit.close()
     
-    #print("saving scrapped data...")
-    #save_scrapped_reddit_data_csvJson(scrapped_data)
+    print("saving scrapped data...")
+    save_scrapped_reddit_data_csvJson(scrapped_data)
     
     print("Starting llm translation...")
     #scrapped_data = pd.read_csv("scrapped_data_new.csv")
@@ -66,16 +66,17 @@ async def main():
     # Assuming df is your DataFrame
     print("Columns at validation: ", validated_model_response.columns.tolist())
     cleaned_df = clean_data_for_sentiment(validated_model_response)
-    #cleaned_df.to_csv("cleaned.csv")
+    cleaned_df.to_csv("cleaned.csv")
+
     
     print("performing sentiment and emotion tagging using llama3.1.....")
     df_emotions = await sentiment_emotion_tagging_comments_langchain(PROMPT_SENTIMENT_EMOTION, MODEL_EMOTION_TAGGING, cleaned_df)
-    #df_emotions.to_csv("emotion_tagging.csv")
+    df_emotions.to_csv("emotion_tagging.csv")
 
     print("cleaning response after emotion tagging...")
     cleaned_df_emotions = extract_sentiment_emotion(df_emotions, "llama3.1:8b_sentiment_emotion_response")
     print("saving cleaned emotions df...")
-    #cleaned_df_emotions.to_csv("cleaned_df_emotions.csv")
+    cleaned_df_emotions.to_csv("cleaned_df_emotions.csv")
     
     reddit_submission_prepared_data = prepare_data_reddit_submission(cleaned_df_emotions)
     print("saving prepared reddit data for supabase...")
@@ -108,14 +109,32 @@ async def main():
     print("summary generateddd,,,")
     weekly_summary_df.to_csv("weekly_summary_df.csv")
 
-    print("generating embeddings...")
+    #cleaned_df = pd.read_csv("cleaned.csv")
+    print("generating embeddings for comments...")
     emb_comment_df = embed_text_in_column(cleaned_df,'comment')
+    emb_comment_df.to_csv("emb_comment_df.csv")
+    print("comments embedding created..")
+
+    print("generating embeddings for titles...")
     emb_title_df = embed_text_in_column(cleaned_df,'submission_title')
+    emb_title_df.to_csv("emb_title_df.csv")
+    print("title embedding created..")
+
+    #cleaned_summary_df = pd.read_csv("cleaned_submission_summary_df.csv")
+    print("generating embedding for submission summary...")
     emb_summary_df = embed_text_in_column(cleaned_summary_df, 'sub_summary')
+    emb_summary_df.to_csv("emb_summary_df.csv")
+    print("submission summary embedding created..")
+
+    #weekly_summary_df = pd.read_csv("weekly_summary_df.csv")
+    print("generating embedding for weekly summaries...")
     emb_weekly_summary_df = embed_text_in_column(weekly_summary_df, 'llm_summary_response')
+    emb_weekly_summary_df.to_csv("emb_weekly_summary_df.csv")
+    print("weekly submission summary embedding created..")
+    
 
     print("embedding generated...")
-    
+  
     print("structuring data for embeddings table...")
     print("passing in the unique submissions list...")
     embeddings_df, reddit_embedding_prepared_data = prepare_data_reddit_embeddings(emb_comment_df, emb_title_df, emb_summary_df)
@@ -124,7 +143,7 @@ async def main():
     df_all_data = pd.DataFrame(reddit_embedding_prepared_data)
     # Save to CSV file
     df_all_data.to_csv('reddit_embeddings.csv', index=False)
-
+    
     print("adding embedding data to table in supabase...")
     reddit_supabase_emb_response = await insert_data_into_table(supabase_client, REDDIT_EMBEDDINGS_TABLE ,reddit_embedding_prepared_data)
     print("Supabase embeddings response ok")
@@ -151,7 +170,6 @@ async def main():
     print("Supabase embeddings response ok")
 
     #TODO: write code to generate summary of a previous week (date range identified above)
-    
 
 # Ensure the event loop is run properly
 if __name__ == "__main__":

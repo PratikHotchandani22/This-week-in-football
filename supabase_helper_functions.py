@@ -61,7 +61,6 @@ def prepare_data_reddit_embeddings(emb_comment_df: pd.DataFrame, emb_title_df: p
     # Merge the DataFrames on the 'submission_id' column
     merged_df = pd.merge(emb_title_df, emb_summary_df, on='submission_id', how='left')
     merged_df = pd.merge(merged_df, emb_comment_df, on='submission_id', how='left')
-    merged_df.drop(columns='comment_id', inplace=True)
 
     # Convert back to lists after removing duplicates
     merged_df['title_emb'] = merged_df['title_emb'].apply(lambda x: list(x))
