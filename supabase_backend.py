@@ -9,15 +9,6 @@ async def create_supabase_connection():
     print("Supabase connection created: ", supabase)
     return supabase
 
-
-# Insert data into the table
-async def insert_data_into_table_old(supabase, table_name, job_data_json):
-    response = supabase.table(table_name).insert(job_data_json).execute()
-    print("Data insertion table name: ")
-    print(f"Table name: {table_name}")
-    #print(f"Response is: {response}")
-    return response
-
 # Function to split the data into batches of a specific size
 def chunk_data(data, batch_size):
     """Yield successive batch_size chunks from data."""
