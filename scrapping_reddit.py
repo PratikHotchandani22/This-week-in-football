@@ -49,45 +49,62 @@ async def scrape_subreddits(subreddit_list, reddit, start_date, end_date):
     for subreddit_name in subreddit_list:
         subreddit = await reddit.subreddit(subreddit_name)
         await asyncio.sleep(2)  # Adds a 2-second delay
+        
+        # Initialize the pagination variable
+        after = None
 
-        # Fetch submissions in the subreddit and filter by date range
-        async for submission in subreddit.hot(limit=3):  # Adjust limit as needed
-            submission_date = datetime.fromtimestamp(submission.created_utc, tz=timezone.utc).date()
+        # Loop to fetch all submissions using pagination
+        while True:
+            # Fetch submissions in batches of 100 using 'after' for pagination
+            submissions = subreddit.hot(limit=100, params={"after": after})
+            
+            # Stop if no more submissions
+            fetched_submissions = 0
+            async for submission in submissions:
+                fetched_submissions += 1
+                submission_date = datetime.fromtimestamp(submission.created_utc, tz=timezone.utc).date()
 
-            # Check if submission falls within the date range
-            if start_date <= submission_date <= end_date:
-                await submission.load()  # Load full submission to access comments
+                # Check if submission falls within the date range
+                if start_date <= submission_date <= end_date:
+                    await submission.load()  # Load full submission to access comments
 
-                # Retrieve top 10 comments
-                await submission.comments.replace_more(limit=5)  # Expand all comments
-                await asyncio.sleep(2)  # Adds a 2-second delay
-                top_comments = submission.comments[:2]  # Get top 100 comments
-                comments_text = [comment.body for comment in top_comments] if top_comments else ["No comments"]
-                comments_id = [comment.id for comment in top_comments] if top_comments else ["No comments"]
-                comments_upvote = [comment.score for comment in top_comments] if top_comments else ["No comments"]
+                    # Retrieve all comments
+                    await submission.comments.replace_more(limit=None)  # Expand all comments
+                    await asyncio.sleep(3)  # Adds a 2-second delay
+                    top_comments = submission.comments  # Get all comments
+                    comments_text = [comment.body for comment in top_comments] if top_comments else ["No comments"]
+                    comments_id = [comment.id for comment in top_comments] if top_comments else ["No comments"]
+                    comments_upvote = [comment.score for comment in top_comments] if top_comments else ["No comments"]
 
-                # Identify submission type
-                submission_type = await get_submission_type(submission)
+                    # Identify submission type
+                    submission_type = await get_submission_type(submission)
 
-                if submission_type == 'Text':
-                    submission_object_link = "N/A"
-                else:
-                    submission_object_link = submission.url
+                    if submission_type == 'Text':
+                        submission_object_link = "N/A"
+                    else:
+                        submission_object_link = submission.url
 
-                # Collect submission details
-                data.append({
-                    'subreddit': subreddit.display_name,
-                    'submission_date': submission_date,
-                    'submission_id': submission.id,
-                    'submission_type': submission_type,
-                    'submission_object_link': submission_object_link,
-                    'submission_url': submission.permalink,
-                    'submission_title': submission.title,
-                    'no_of_upvotes': submission.score,
-                    'comments': comments_text,
-                    'comment_id':comments_id,
-                    'comments_upvote':comments_upvote
-                })
+                    # Collect submission details
+                    data.append({
+                        'subreddit': subreddit.display_name,
+                        'submission_date': submission_date,
+                        'submission_id': submission.id,
+                        'submission_type': submission_type,
+                        'submission_object_link': submission_object_link,
+                        'submission_url': submission.permalink,
+                        'submission_title': submission.title,
+                        'no_of_upvotes': submission.score,
+                        'comments': comments_text,
+                        'comment_id': comments_id,
+                        'comments_upvote': comments_upvote
+                    })
+
+            # If fewer than 100 submissions were fetched, stop the loop (end of subreddit)
+            if fetched_submissions < 100:
+                break
+
+            # Get the last submission's ID to continue fetching the next page
+            after = submission.name
 
     # Convert collected data into a DataFrame
     return pd.DataFrame(data)
