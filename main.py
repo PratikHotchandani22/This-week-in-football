@@ -1,12 +1,14 @@
-from configurations import  REDDIT_WEEKLY_SUMMARY_TABLE, PROMPT_SUBMISSION_SUMMARY, PROMPT_WEEKLY_SUMMARY, MODEL_EMOTION_TAGGING, PROMPT_SENTIMENT_EMOTION, REDDIT_COMMENT_CLEANING_LABELS, REDDIT_EMBEDDINGS_TABLE, REDDIT_SUMMARY_TABLE, REDDIT_SUBMISSIONS_TABLE, MODEL_COMMENT_CLEANING, REDDIT_SUBREDDITS, tgt_lang, PROMPT_COMMENT_CLEANING_SUBMISSION, PROMPT_COMMENT_CLEANING_SUBMISSION
+from configurations import leagues, REDDIT_WEEKLY_SUMMARY_TABLE, PROMPT_SUBMISSION_SUMMARY, PROMPT_WEEKLY_SUMMARY, MODEL_EMOTION_TAGGING, PROMPT_SENTIMENT_EMOTION, REDDIT_COMMENT_CLEANING_LABELS, REDDIT_EMBEDDINGS_TABLE, REDDIT_SUMMARY_TABLE, REDDIT_SUBMISSIONS_TABLE, MODEL_COMMENT_CLEANING, REDDIT_SUBREDDITS, tgt_lang, PROMPT_COMMENT_CLEANING_SUBMISSION, PROMPT_COMMENT_CLEANING_SUBMISSION
 from helper_functions import generate_weekly_summary_langchain, prepare_prompt_for_weekly_submission_summary, prepare_df_for_summary_supabase, clean_summary_response_from_llm, generate_summary_langchain, prepare_data_for_unique_submission_summary, extract_sentiment_emotion, sentiment_emotion_tagging_comments_langchain, clean_data_for_sentiment, validate_qwen_response, get_previous_week_range, classify_comments_for_cleaning_with_models_time_langChain, load_tokenizer_model, translate_comments, prepare_data_for_translation, clean_data_after_preparation
 from scrapping_reddit import initialize_reddit_client, scrape_subreddits, save_scrapped_reddit_data_csvJson
 import asyncio
 import pandas as pd
 
 from generate_embeddings import embed_text_in_column
-from supabase_backend import create_supabase_connection, insert_data_into_table, fetch_data_from_table
-from supabase_helper_functions import prepare_data_reddit_weekly_summary, prepare_data_reddit_summary, prepare_data_reddit_embeddings, prepare_data_reddit_submission
+from supabase_backend import insert_league_matches, create_supabase_connection, insert_data_into_table, fetch_data_from_table
+from supabase_helper_functions import prepare_data_league_matches, prepare_data_reddit_weekly_summary, prepare_data_reddit_summary, prepare_data_reddit_embeddings, prepare_data_reddit_submission
+from scrape_fbref import scrape_and_process_leagues
+
 
 async def main():
     
@@ -15,6 +17,25 @@ async def main():
     print("start date is: ", start_date)
     print("\n")
     print("end date is: ", end_date)
+    
+    print("scrapping data from fbref...")
+    ## Scrape fbRef data for matches played in top 5 leagues.
+    fbref_df = await scrape_and_process_leagues()
+    print("fbref data scrapped...")
+
+    print("preparing league matches data for supabase...")
+    league_matches_prepared_data = prepare_data_league_matches(fbref_df)
+    print("saving prepared league matches data for supabase...")
+
+    print("Creating supbase connection..")
+    supabase_client = await create_supabase_connection()
+    print("Supabase connection created.. ")
+
+    print("Adding league matches data to supabase table..")
+    await insert_league_matches(supabase_client, league_matches_prepared_data)    
+    #reddit_supabase_sub_response = await insert_data_into_table(supabase_client, "league_matches", league_matches_prepared_data, batch_size=100)
+    print("Supabase submissions response ok for league matches")
+
     reddit = await initialize_reddit_client()
     print("initialized reddit client: ", reddit)
 
@@ -170,7 +191,8 @@ async def main():
     print("Supabase embeddings response ok")
 
     #TODO: write code to generate summary of a previous week (date range identified above)
-
+    
+    
 # Ensure the event loop is run properly
 if __name__ == "__main__":
     asyncio.run(main())  # Run the async main function
