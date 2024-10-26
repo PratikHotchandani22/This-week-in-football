@@ -138,3 +138,13 @@ REDDIT_SUBMISSIONS_TABLE = "reddit_submissions"
 REDDIT_SUMMARY_TABLE = "reddit_summary"
 REDDIT_WEEKLY_SUMMARY_TABLE = "reddit_weekly_summaries"
 
+# URLs and attributes for each league
+leagues = {
+    "Champions League": {"url": "https://fbref.com/en/comps/8/schedule/Champions-League-Scores-and-Fixtures", "table_id": {"id": "sched_all"}},
+    "La Liga": {"url": "https://fbref.com/en/comps/12/schedule/La-Liga-Scores-and-Fixtures", "table_id": {"id": "sched_2024-2025_12_1"}},
+    "Premier League": {"url": "https://fbref.com/en/comps/9/schedule/Premier-League-Scores-and-Fixtures", "table_id": {"id": "sched_2024-2025_9_1"}},
+    "Bundesliga": {"url": "https://fbref.com/en/comps/20/schedule/Bundesliga-Scores-and-Fixtures", "table_id": {"id": "sched_2024-2025_20_1"}},
+    "Serie A": {"url": "https://fbref.com/en/comps/11/schedule/Serie-A-Scores-and-Fixtures", "table_id": {"id": "sched_2024-2025_11_1"}},
+    "Ligue 1": {"url": "https://fbref.com/en/comps/13/schedule/Ligue-1-Scores-and-Fixtures", "table_id": {"id": "sched_2024-2025_13_1"}},
+    "MLS": {"url": "https://fbref.com/en/comps/22/schedule/Major-League-Soccer-Scores-and-Fixtures", "table_id": {"id": "sched_all"}},
+}

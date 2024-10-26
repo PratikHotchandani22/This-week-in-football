@@ -1,6 +1,7 @@
 import pandas as pd
 from datetime import datetime
 import ast
+import json
 import numpy as np
 
 def prepare_data_reddit_submission(models_response: pd.DataFrame):
@@ -111,4 +112,33 @@ def prepare_data_reddit_weekly_summary(df: pd.DataFrame):
         all_data.append(data)
 
     # Return the list of dictionaries (ready for insertion into the database)
+    return all_data
+
+def prepare_data_league_matches(matches_df: pd.DataFrame):
+    all_data = []
+    
+    for _, row in matches_df.iterrows():
+        data = {
+            "round": row["round"] if pd.notna(row["round"]) else None,
+            "wk": row["wk"] if pd.notna(row["wk"]) else None,
+            "day": row["day"] if pd.notna(row["day"]) else None,
+            "match_date": row["match_date"].isoformat() if isinstance(row["match_date"], pd.Timestamp) else None,
+            "home": row["home"] if pd.notna(row["home"]) else None,
+            "xg_home": float(row["xg_home"]) if pd.notna(row["xg_home"]) else None,  # Numeric (4,2) field
+            "score": row["score"] if pd.notna(row["score"]) else None,
+            "xg_away": float(row["xg_away"]) if pd.notna(row["xg_away"]) else None,  # Numeric (4,2) field
+            "away": row["away"] if pd.notna(row["away"]) else None,
+            "attendance": int(row["attendance"]) if pd.notna(row["attendance"]) else None,  # Integer field
+            "venue": row["venue"] if pd.notna(row["venue"]) else None,
+            "referee": row["referee"] if pd.notna(row["referee"]) else None,
+            "league_name": row["league_name"] if pd.notna(row["league_name"]) else None,
+            "unique_identifier_id": row["unique_identifier_id"] if pd.notna(row["unique_identifier_id"]) else None
+        }
+
+        all_data.append(data)
+
+    # Save all_data to a JSON file for inspection
+    with open("league_matches_data.json", "w") as json_file:
+        json.dump(all_data, json_file, indent=4)
+
     return all_data

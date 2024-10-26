@@ -42,4 +42,22 @@ async def fetch_data_from_table(supabase, table_name):
     return response
 
 
+async def insert_league_matches(supabase_client, prepared_data):
+    # Fetch existing unique identifiers from the database
+    existing_ids_response = supabase_client.table("league_matches").select("unique_identifier_id").execute()
+    existing_ids = {item['unique_identifier_id'] for item in existing_ids_response.data}
 
+    # Filter out new data that already exists
+    new_data_to_insert = [match for match in prepared_data if match["unique_identifier_id"] not in existing_ids]
+
+    if new_data_to_insert:
+        print("New data to insert:", new_data_to_insert)  # Debug print to see the data being inserted
+        # Insert new records into Supabase
+        insert_response = supabase_client.table("league_matches").insert(new_data_to_insert).execute()
+        
+        if insert_response.status_code == 201:  # 201 Created
+            print("Inserted records:", insert_response.data)
+        else:
+            print(f"Error inserting records: {insert_response.json()}")
+    else:
+        print("No new records to insert; all matches already exist.")
